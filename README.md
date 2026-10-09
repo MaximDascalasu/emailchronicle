@@ -70,6 +70,19 @@ The default storage directory is `%LOCALAPPDATA%\EmailChronicle`. Choose a local
 
 ## How it works
 
+The desktop workspace includes an investigation sidebar, visible-message and
+review summary cards, a resizable timeline beside an evidence inspector, and
+separate Message and Provenance & review tabs. Use **Needs review only** to focus
+on parsing warnings and duplicate hints. Counts reflect the current filters;
+**Reset** clears all filters. Selecting a message keeps its provenance available
+alongside its cleaned content. The source button checks integrity before opening.
+
+Keyboard shortcuts: **Ctrl+N** creates an investigation, **Ctrl+O** imports EML,
+**Ctrl+F** focuses search, and **Ctrl+E** exports CSV. Hover over truncated timeline
+cells to read their full values. Resize the divider or column headers to suit
+your screen. Review labels are informational; this version does not record a
+manual reviewed/resolved status.
+
 Create a case, select EML evidence and import it. The importer reads each original
 without changing it, calculates its SHA-256 fingerprint, preserves a copy, then
 parses the email headers and body. Recognizable forwarded headers become separate

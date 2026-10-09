@@ -35,6 +35,32 @@ def test_csv_formula_escaping():
     assert safe_cell("normal") == "normal"
 
 
+def test_review_filter_reset_and_empty_states(tmp_path):
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path)
+    window = Window(store)
+    assert not window.import_button.isEnabled()
+    assert not window.export_button.isEnabled()
+    case = store.create_investigation("Review workflow")
+    store.import_eml(case, SAMPLES / "03-followup.eml")
+    window.reload_cases(case)
+    assert window.import_button.isEnabled()
+    assert window.source_button.isEnabled()
+    assert window.metrics[0].text() == "2"
+    window.review_only.setChecked(True)
+    assert len(window.rows) == 1
+    assert "quoted_headers_unverified" in window.detail.toPlainText()
+    window.keyword.setText("no-match-anywhere")
+    assert len(window.rows) == 0
+    assert not window.source_button.isEnabled()
+    assert not window.export_button.isEnabled()
+    window.clear_filters()
+    assert len(window.rows) == 2
+    assert not window.review_only.isChecked()
+    window.close()
+    store.close()
+
+
 def test_help_and_license_access(tmp_path, monkeypatch):
     from emailchronicle import app as module
     app = QApplication.instance() or QApplication([])
