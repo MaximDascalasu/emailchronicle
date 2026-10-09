@@ -1,0 +1,16 @@
+From: Alice Example <alice@example.test>
+To: Bob Example <bob@example.test>
+Subject: Re: Evidence handover
+Date: Tue, 07 Jul 2026 12:00:00 +0100
+Message-ID: <followup@example.test>
+Content-Type: text/plain; charset=utf-8
+
+Confirmed receipt.
+
+-----Original Message-----
+From: Bob Example <bob@example.test>
+Sent: Tue, 07 Jul 2026 12:30:00 +0200
+To: Alice Example <alice@example.test>
+Subject: Evidence handover
+
+The synthetic evidence is ready.
