@@ -4,6 +4,13 @@ An offline Windows desktop application for reconstructing email timelines from l
 
 ## Install without Python (Windows x64)
 
+**Distribution review:** 0.1.0 is an unsigned preview with incomplete third-party
+notices. Do not redistribute it as a reviewed commercial package. The 0.1.1
+development build corrects notice/source packaging and prepares trusted signing;
+it has not been published as a signed release. Publisher identity, an actual
+signing credential and the application's license choice are still needed. See
+[distribution status](docs/DISTRIBUTION.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+
 Download `EmailChronicle-Setup-0.1.0-x64.exe` from [GitHub Releases](https://github.com/MaximDascalasu/emailchronicle/releases/latest), run it and follow the setup wizard. Python and Qt are bundled; the installed app works offline. Installation is per user and does not require administrator rights. Start EmailChronicle from the Start menu; setup also offers an optional desktop shortcut. Supported target: Windows 10/11 x64.
 
 This preview installer is unsigned, so Windows may display an unknown-publisher or SmartScreen warning. Verify that the download comes from this repository; code signing is a future distribution improvement. `SHA256SUMS.txt` on the release contains the installer checksum. Verify a download with `Get-FileHash .\EmailChronicle-Setup-0.1.0-x64.exe -Algorithm SHA256`.
@@ -22,7 +29,7 @@ powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
 
 The build runs pytest, uses PyInstaller to bundle the app, runs an isolated executable smoke test (Qt, SQLite, EML parsing and source integrity), then compiles the setup EXE and checksum into `installer-output`. Use `-Iscc "C:\path\to\ISCC.exe"` for a custom compiler path. Third-party license files and synthetic samples are included in the app bundle.
 
-GitHub Actions also builds an installer via **Actions → Build Windows installer → Run workflow**, with downloads under the completed run's artifacts. Pushing a version tag such as `v0.1.0` publishes the EXE and checksum to GitHub Releases after tests and the packaged executable smoke test pass. The tag must match the version in `pyproject.toml`.
+GitHub Actions builds unsigned review artifacts via **Actions → Build Windows installer → Run workflow**. The output includes a third-party source archive, license notices, file inventory, signing status and checksums. Tag builds now require a configured signing identity, verified signatures and successful installation tests before publishing. The tag must match `pyproject.toml`; do not push a new release tag before completing [distribution setup](docs/DISTRIBUTION.md).
 
 ## Windows setup
 
@@ -59,6 +66,27 @@ The default storage directory is `%LOCALAPPDATA%\EmailChronicle`. Choose a local
 5. Import the same file again to see exact-file deduplication. Create a second investigation to see separate evidence collections.
 6. Select a row to inspect its cleaned text, original date text, parsing origin, source paths, locator and SHA-256. **Open source copy** verifies the hash and opens the preserved EML using the Windows file association.
 7. Search subject/content, filter sender, or enter ISO dates to filter UTC calendar days. Undated messages remain visible for review. Export CSV exports the currently visible rows with provenance and flags.
+8. In the 0.1.1 development build, use **Help → How to use EmailChronicle** for an in-app explanation and **Help → Third-party licenses** to inspect the bundled notices.
+
+## How it works
+
+Create a case, select EML evidence and import it. The importer reads each original
+without changing it, calculates its SHA-256 fingerprint, preserves a copy, then
+parses the email headers and body. Recognizable forwarded headers become separate
+message assertions linked to that same source. Original metadata and quoted-text
+assertions are stored separately in SQLite.
+
+The timeline converts known dates to UTC and sorts oldest first. Unknown times
+remain undated and flagged. Exact file copies are skipped; likely duplicate
+messages are marked for review rather than merged. Selecting a row shows its
+content and provenance. Opening its source verifies the preserved file's hash
+before asking the Windows EML viewer to open it. CSV export includes the visible
+rows, review flags and source hash. Everything lives in the chosen local data
+directory; there are no cloud or AI calls from the installed app.
+
+The current app supports EML and CSV. It does not yet import MSG/PDF/DOCX/ZIP,
+export native Excel files, encrypt the workspace, or provide a tamper-proof audit
+log. See the [prioritized roadmap](docs/ROADMAP.md).
 
 ## Evidence model and limits
 

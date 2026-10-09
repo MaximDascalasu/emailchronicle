@@ -1,16 +1,46 @@
 param(
     [string]$Python = ".venv\Scripts\python.exe",
-    [string]$Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+    [string]$Iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+    [switch]$RequireSigning,
+    [string]$CertificateThumbprint = $env:EMAILCHRONICLE_SIGNING_THUMBPRINT,
+    [string]$Publisher = $env:EMAILCHRONICLE_PUBLISHER,
+    [string]$TimestampUrl = 'http://timestamp.digicert.com',
+    [string]$SignTool = ''
 )
 $ErrorActionPreference = "Stop"
 Set-Location (Split-Path $PSScriptRoot -Parent)
+if (-not $Publisher) { $Publisher = 'EmailChronicle' }
+if ($RequireSigning -and -not $CertificateThumbprint) { throw 'Signed release blocked: no code-signing certificate configured' }
+if ($RequireSigning) {
+    $distribution = Get-Content 'packaging\distribution-status.json' -Raw | ConvertFrom-Json
+    if ($distribution.application_license -eq 'pending-owner-decision' -or
+        $distribution.runtime_redistribution_review -ne 'complete' -or
+        -not $distribution.reviewed_by -or $distribution.publisher -ne $Publisher) {
+        throw 'Signed release blocked: publisher/license/redistribution review incomplete; see docs/DISTRIBUTION.md'
+    }
+}
+if ($CertificateThumbprint) {
+    & "$PSScriptRoot\sign-windows.ps1" -FilePath "$PSScriptRoot\build-windows.ps1" -CertificateThumbprint $CertificateThumbprint -Publisher $Publisher -TimestampUrl $TimestampUrl -SignTool $SignTool -CheckOnly
+}
 function Assert-Exit([string]$Step) {
     if ($LASTEXITCODE -ne 0) { throw "$Step failed ($LASTEXITCODE)" }
 }
 & $Python -m pytest -q
 Assert-Exit "Tests"
+& $Python packaging\compliance.py
+Assert-Exit "License/source collection"
 & $Python -m PyInstaller --noconfirm --clean packaging\EmailChronicle.spec
 Assert-Exit "Executable build"
+if ($CertificateThumbprint) {
+    foreach ($binary in Get-ChildItem 'dist\EmailChronicle' -Recurse -File | Where-Object Extension -In '.exe','.dll','.pyd') {
+        $signature = Get-AuthenticodeSignature -LiteralPath $binary.FullName
+        if ($signature.Status -eq 'Valid') { continue } # Retain trusted upstream signatures.
+        if ($signature.Status -ne 'NotSigned') { throw "Invalid upstream binary signature: $($binary.Name)" }
+        & "$PSScriptRoot\sign-windows.ps1" -FilePath $binary.FullName -CertificateThumbprint $CertificateThumbprint -Publisher $Publisher -TimestampUrl $TimestampUrl -SignTool $SignTool
+    }
+}
+& $Python packaging\compliance.py --inventory dist\EmailChronicle
+Assert-Exit "Bundle/license inventory"
 $report = Join-Path (Get-Location) "build\smoke-report.json"
 if (Test-Path -LiteralPath $report) { Remove-Item -LiteralPath $report }
 $previousQtPlatform = $env:QT_QPA_PLATFORM
@@ -29,9 +59,30 @@ try {
 }
 $version = & $Python -c "import importlib.metadata; print(importlib.metadata.version('emailchronicle'))"
 Assert-Exit "Version lookup"
-& $Iscc "/DAppVersion=$version" packaging\installer.iss
+$compilerArgs = @("/DAppVersion=$version", "/DAppPublisher=$Publisher")
+if ($CertificateThumbprint) {
+    # Inno substitutes $q with quotes and $f with the quoted setup/uninstall file.
+    # Signing settings are public identity/configuration only, never key material.
+    $signScript = (Resolve-Path "$PSScriptRoot\sign-windows.ps1").Path
+    $signCommand = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -File $q' + $signScript + '$q -FilePath $f -CertificateThumbprint ' + $CertificateThumbprint + ' -Publisher $q' + $Publisher + '$q -TimestampUrl $q' + $TimestampUrl + '$q'
+    if ($SignTool) { $signCommand += ' -SignTool $q' + $SignTool + '$q' }
+    $compilerArgs += @('/DSignRelease', ('/Schronicle=' + $signCommand))
+}
+& $Iscc @compilerArgs packaging\installer.iss
 Assert-Exit "Installer build"
 $artifact = Get-Item "installer-output\EmailChronicle-Setup-$version-x64.exe"
-$hash = (Get-FileHash -LiteralPath $artifact.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-"$hash  $($artifact.Name)" | Set-Content -Encoding ascii "installer-output\SHA256SUMS.txt"
+if ($CertificateThumbprint -and (Get-AuthenticodeSignature -LiteralPath $artifact.FullName).Status -ne 'Valid') {
+    throw 'Setup signature is not valid'
+}
+& $Python packaging\compliance.py --source-companion
+Assert-Exit "Source companion archive"
+Copy-Item 'dist\EmailChronicle\bundle-inventory.json' 'installer-output\bundle-inventory.json'
+Copy-Item 'THIRD_PARTY_NOTICES.md' 'installer-output\THIRD_PARTY_NOTICES.md'
+$signed = [bool]$CertificateThumbprint
+@{signed=$signed; publisher=$Publisher; version=$version; certificate_thumbprint=$CertificateThumbprint} |
+    ConvertTo-Json | Set-Content -Encoding utf8 'installer-output\signing-status.json'
+Get-ChildItem installer-output -File | Where-Object Name -NE 'SHA256SUMS.txt' | ForEach-Object {
+    $hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    "$hash  $($_.Name)"
+} | Set-Content -Encoding ascii 'installer-output\SHA256SUMS.txt'
 Write-Host "Installer ready: $($artifact.FullName)"

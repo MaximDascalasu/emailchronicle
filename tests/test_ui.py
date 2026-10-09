@@ -35,6 +35,22 @@ def test_csv_formula_escaping():
     assert safe_cell("normal") == "normal"
 
 
+def test_help_and_license_access(tmp_path, monkeypatch):
+    from emailchronicle import app as module
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path)
+    window = Window(store)
+    messages, opened = [], []
+    monkeypatch.setattr(module.QMessageBox, "information", lambda *args: messages.append(args[-1]))
+    monkeypatch.setattr(module.QDesktopServices, "openUrl", lambda url: opened.append(url.toLocalFile()) or True)
+    window.show_help()
+    window.open_licenses()
+    assert "No missing times or senders are invented" in messages[0]
+    assert opened and module.Path(opened[0]).exists()
+    window.close()
+    store.close()
+
+
 def test_import_export_and_source_ui(tmp_path, monkeypatch):
     import csv
     from emailchronicle import app as module

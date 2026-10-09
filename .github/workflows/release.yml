@@ -2,6 +2,7 @@ name: Build Windows installer
 on:
   workflow_dispatch:
   push:
+    branches: ['main']
     tags: ['v*']
 permissions:
   contents: write
@@ -23,7 +24,10 @@ jobs:
           if (-not (Test-Path $compiler)) { throw "Inno Setup 6 compiler unavailable" }
       - name: Build and smoke-test
         shell: pwsh
-        run: ./scripts/build-windows.ps1
+        env:
+          EMAILCHRONICLE_SIGNING_THUMBPRINT: ${{ vars.EMAILCHRONICLE_SIGNING_THUMBPRINT }}
+          EMAILCHRONICLE_PUBLISHER: ${{ vars.EMAILCHRONICLE_PUBLISHER }}
+        run: ./scripts/build-windows.ps1 -RequireSigning:($env:GITHUB_REF_TYPE -eq 'tag')
       - name: Test installation and uninstallation on isolated runner
         shell: pwsh
         run: |
@@ -31,6 +35,11 @@ jobs:
           $installer = (Get-ChildItem installer-output/*.exe).FullName
           $setup = Start-Process $installer -ArgumentList @('/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART', "/DIR=`"$installDir`"") -WindowStyle Hidden -Wait -PassThru
           if ($setup.ExitCode -ne 0) { throw "Installation failed" }
+          if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            foreach ($binary in Get-ChildItem $installDir -Recurse -File | Where-Object Extension -In '.exe','.dll','.pyd') {
+              if ((Get-AuthenticodeSignature -LiteralPath $binary.FullName).Status -ne 'Valid') { throw "Installed binary signature invalid: $($binary.Name)" }
+            }
+          }
           $report = Join-Path $env:RUNNER_TEMP "installed-smoke.json"
           $env:QT_QPA_PLATFORM = 'offscreen'
           $app = Start-Process "$installDir\EmailChronicle.exe" -ArgumentList @('--smoke-test', "`"$report`"") -WindowStyle Hidden -PassThru
@@ -56,4 +65,7 @@ jobs:
         run: |
           $version = & .\.venv\Scripts\python.exe -c "import importlib.metadata; print(importlib.metadata.version('emailchronicle'))"
           if ($env:GITHUB_REF_NAME -ne "v$version") { throw "Tag and package version differ" }
-          gh release create $env:GITHUB_REF_NAME installer-output/*.exe installer-output/SHA256SUMS.txt --verify-tag --title "EmailChronicle $version" --notes "Windows x64 installer. Download and run the Setup EXE; Python is bundled. First EML-only preview. Installer is unsigned. Evidence is retained when uninstalling. SHA256SUMS.txt contains the download checksum."
+          $status = Get-Content installer-output/signing-status.json -Raw | ConvertFrom-Json
+          if (-not $status.signed) { throw 'Unsigned releases are blocked' }
+          $assets = (Get-ChildItem installer-output -File).FullName
+          gh release create $env:GITHUB_REF_NAME @assets --verify-tag --title "EmailChronicle $version" --notes "Windows x64 installer. Signed and timestamped Windows binaries; Python is bundled. EML-only preview. Download the installer together with ThirdPartySources ZIP and notices. Evidence is retained when uninstalling. SHA256SUMS.txt contains download checksums."

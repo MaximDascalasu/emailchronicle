@@ -23,6 +23,9 @@ class Window(QMainWindow):
         self.rows = []
         self.setWindowTitle("EmailChronicle — local evidence workspace")
         self.resize(1200, 800)
+        help_menu = self.menuBar().addMenu("Help")
+        help_menu.addAction("How to use EmailChronicle", self.show_help)
+        help_menu.addAction("Third-party licenses", self.open_licenses)
         root = QWidget()
         layout = QVBoxLayout(root)
         self.setCentralWidget(root)
@@ -69,6 +72,28 @@ class Window(QMainWindow):
         layout.addWidget(splitter)
         self.cases.currentIndexChanged.connect(self.refresh)
         self.reload_cases()
+
+    def show_help(self):
+        QMessageBox.information(self, "How EmailChronicle works",
+            "1. Create an investigation, then import EML files.\n"
+            "2. The app preserves a hashed copy of each file and extracts messages.\n"
+            "3. Known dates are converted to UTC and sorted oldest first.\n"
+            "4. Review quoted headers, missing dates and likely duplicates manually.\n"
+            "5. Select a message to inspect its content and source; export visible rows to CSV.\n\n"
+            "Original files are never modified by the importer. All evidence stays in your local workspace.\n"
+            "Quoted headers are unverified text. No missing times or senders are invented.\n\n"
+            f"Workspace: {self.store.directory}")
+
+    def open_licenses(self):
+        if getattr(sys, "frozen", False):
+            path = Path(sys._MEIPASS) / "third-party-notices"
+        else:
+            root = Path(__file__).resolve().parents[2]
+            path = root / "build" / "compliance" / "third-party-notices"
+            if not path.is_dir():
+                path = root / "THIRD_PARTY_NOTICES.md"
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            QMessageBox.warning(self, "Third-party licenses", f"Could not open {path}")
 
     def reload_cases(self, selected=None):
         self.cases.blockSignals(True)

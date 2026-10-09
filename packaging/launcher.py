@@ -10,6 +10,11 @@ def smoke_test(report):
     from emailchronicle.app import Window
     from emailchronicle.store import Store
 
+    if getattr(sys, "frozen", False):
+        notices = Path(sys._MEIPASS) / "third-party-notices"
+        assert (notices / "source-index.json").is_file(), "License source index missing"
+        assert any("lgpl" in p.name.lower() for p in notices.rglob("*")), "LGPL license text missing"
+
     with TemporaryDirectory(prefix="EmailChronicle-smoke-") as directory:
         folder = Path(directory)
         original = folder / "synthetic.eml"

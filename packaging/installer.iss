@@ -1,12 +1,15 @@
 #ifndef AppVersion
   #define AppVersion "0.1.0"
 #endif
+#ifndef AppPublisher
+  #define AppPublisher "EmailChronicle"
+#endif
 
 [Setup]
 AppId={{AA579A1A-4BBD-41A2-B704-5B8F5DEBE19B}
 AppName=EmailChronicle
 AppVersion={#AppVersion}
-AppPublisher=EmailChronicle
+AppPublisher={#AppPublisher}
 AppPublisherURL=https://github.com/MaximDascalasu/emailchronicle
 DefaultDirName={localappdata}\Programs\EmailChronicle
 DefaultGroupName=EmailChronicle
@@ -23,6 +26,11 @@ WizardStyle=modern
 UninstallDisplayIcon={app}\EmailChronicle.exe
 CloseApplications=yes
 SetupLogging=yes
+InfoBeforeFile=..\THIRD_PARTY_NOTICES.md
+#ifdef SignRelease
+SignTool=chronicle
+SignedUninstaller=yes
+#endif
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
@@ -32,6 +40,7 @@ Source: "..\dist\EmailChronicle\*"; DestDir: "{app}"; Flags: ignoreversion recur
 
 [Icons]
 Name: "{autoprograms}\EmailChronicle"; Filename: "{app}\EmailChronicle.exe"
+Name: "{autoprograms}\EmailChronicle third-party notices"; Filename: "{app}\_internal\THIRD_PARTY_NOTICES.md"
 Name: "{autodesktop}\EmailChronicle"; Filename: "{app}\EmailChronicle.exe"; Tasks: desktopicon
 
 [Run]
