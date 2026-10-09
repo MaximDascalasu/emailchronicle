@@ -52,6 +52,9 @@ QTabBar::tab:selected { background: white; color: #225ec4; border-bottom: 2px so
 QSplitter::handle { background: #e3e9f2; width: 7px; }
 QStatusBar { background: #e9eef6; color: #61718a; padding: 4px; }
 QLabel#empty { color: #61718a; border: 1px dashed #b8c7da; border-radius: 8px; padding: 20px; }
+QFrame#workflow { background: #eaf1fc; border: 1px solid #c8d9f2; border-radius: 8px; }
+QLabel#guidance { background: transparent; color: #29486f; padding: 4px; }
+QPushButton[workflowActive="true"] { background: #225ec4; color: white; border-color: #225ec4; }
 QMenuBar, QMenu { background: white; }
 QMenu::item:selected { background: #dfebff; }
 QCheckBox { spacing: 8px; }
@@ -130,6 +133,29 @@ class Window(QMainWindow):
         self.import_button.clicked.connect(self.import_files)
         top.addWidget(self.import_button)
         layout.addLayout(top)
+        workflow = QFrame()
+        workflow.setObjectName("workflow")
+        journey = QVBoxLayout(workflow)
+        journey.setContentsMargins(14, 12, 14, 12)
+        journey.setSpacing(8)
+        steps = QHBoxLayout()
+        self.workflow_buttons = []
+        for index, label in enumerate(("1  Create case", "2  Import EML", "3  Read timeline", "4  Check sources", "5  Export CSV")):
+            button = QPushButton(label)
+            button.setAccessibleName("Workflow step " + label)
+            button.clicked.connect(lambda checked=False, step=index: self.workflow_step(step))
+            self.workflow_buttons.append(button)
+            steps.addWidget(button, 1)
+            if index < 4:
+                arrow = QLabel("→")
+                arrow.setStyleSheet("background: transparent; color: #61718a;")
+                steps.addWidget(arrow)
+        journey.addLayout(steps)
+        self.guidance = QLabel()
+        self.guidance.setObjectName("guidance")
+        self.guidance.setWordWrap(True)
+        journey.addWidget(self.guidance)
+        layout.addWidget(workflow)
         summary = QHBoxLayout()
         self.metrics = []
         for label in ("VISIBLE MESSAGES", "NEEDS REVIEW", "DUPLICATE HINTS"):
@@ -249,6 +275,32 @@ class Window(QMainWindow):
         self.review_only.blockSignals(False)
         self.refresh()
 
+    def set_guidance(self, step, text):
+        self.guidance.setText(text)
+        for index, button in enumerate(self.workflow_buttons):
+            button.setProperty("workflowActive", index == step)
+            button.style().unpolish(button)
+            button.style().polish(button)
+
+    def workflow_step(self, step):
+        if step == 0:
+            self.new_case()
+        elif self.cases.currentData() is None:
+            self.set_guidance(0, "Start here: create an investigation. It keeps this case's evidence separate from other cases.")
+        elif step == 1:
+            self.import_files()
+        elif step == 2:
+            self.set_guidance(2, "Read oldest → newest in UTC. Unknown dates stay last. Select a row to read its message; use search to narrow the timeline.")
+            self.table.setFocus()
+        elif step == 3:
+            self.tabs.setCurrentIndex(1)
+            self.set_guidance(3, "Check Provenance & review for raw dates, quoted headers, duplicate hints and SHA-256. Open verified source copy checks file integrity; it does not verify the email author's identity.")
+            self.detail.setFocus()
+        elif step == 4:
+            self.set_guidance(4, "Export saves only the messages visible under your current filters. Include undated and flagged messages where relevant; CSV keeps provenance and review flags.")
+            if self.rows:
+                self.export_csv()
+
     def show_help(self):
         QMessageBox.information(self, "How EmailChronicle works",
             "1. Create an investigation, then import EML files.\n"
@@ -307,6 +359,17 @@ class Window(QMainWindow):
             QMessageBox.information(self, "Import result", f"Extracted {count} messages. Skipped {skipped} exact duplicate files.\n" + "\n".join(failures))
 
     def refresh(self):
+        case = self.cases.currentData()
+        has_evidence = bool(self.store.timeline(case)) if case is not None else False
+        self.workflow_buttons[1].setEnabled(case is not None)
+        for button in self.workflow_buttons[2:]:
+            button.setEnabled(has_evidence)
+        if case is None:
+            self.set_guidance(0, "Start here: create an investigation. It keeps this case's evidence separate from other cases.")
+        elif not has_evidence:
+            self.set_guidance(1, "Next: import EML files in any order. The app preserves copies and hashes, extracts messages, and sorts known timestamps into UTC.")
+        else:
+            self.set_guidance(2, "Next: read the timeline, then check sources and review flags before exporting. Highlighted steps are guidance, not a record that evidence has been reviewed.")
         previous = self.selected()
         selected_id = previous["id"] if previous else None
         self.case_title.setText(self.cases.currentText() or "Investigation timeline")

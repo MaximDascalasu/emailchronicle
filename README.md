@@ -77,6 +77,12 @@ on parsing warnings and duplicate hints. Counts reflect the current filters;
 **Reset** clears all filters. Selecting a message keeps its provenance available
 alongside its cleaned content. The source button checks integrity before opening.
 
+A five-step guide across the top shows the path: **Create case → Import EML →
+Read timeline → Check sources → Export CSV**. Click a step to perform its action
+or focus the relevant panel. Contextual instructions explain the next action;
+steps become available when a case and evidence exist. Highlighting is guidance,
+not a claim that a message has been manually reviewed or authenticated.
+
 Keyboard shortcuts: **Ctrl+N** creates an investigation, **Ctrl+O** imports EML,
 **Ctrl+F** focuses search, and **Ctrl+E** exports CSV. Hover over truncated timeline
 cells to read their full values. Resize the divider or column headers to suit

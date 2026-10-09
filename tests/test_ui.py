@@ -40,6 +40,8 @@ def test_review_filter_reset_and_empty_states(tmp_path):
     store = Store(tmp_path)
     window = Window(store)
     assert not window.import_button.isEnabled()
+    assert "Start here" in window.guidance.text()
+    assert not window.workflow_buttons[1].isEnabled()
     assert not window.export_button.isEnabled()
     case = store.create_investigation("Review workflow")
     store.import_eml(case, SAMPLES / "03-followup.eml")
@@ -47,6 +49,10 @@ def test_review_filter_reset_and_empty_states(tmp_path):
     assert window.import_button.isEnabled()
     assert window.source_button.isEnabled()
     assert window.metrics[0].text() == "2"
+    assert window.workflow_buttons[3].isEnabled()
+    window.workflow_step(3)
+    assert window.tabs.currentIndex() == 1
+    assert "does not verify" in window.guidance.text()
     window.review_only.setChecked(True)
     assert len(window.rows) == 1
     assert "quoted_headers_unverified" in window.detail.toPlainText()
