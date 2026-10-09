@@ -9,3 +9,7 @@ dist/
 evidence/
 .tools/
 installer-output/
+.local-signing/
+*.pfx
+*.p12
+*.key
