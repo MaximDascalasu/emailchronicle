@@ -2,6 +2,28 @@
 
 An offline Windows desktop application for reconstructing email timelines from local evidence. This first working slice supports **EML only**. It uses Python 3.12+, PySide6 and SQLite, with no cloud services, external AI calls or telemetry.
 
+## Install without Python (Windows x64)
+
+Download `EmailChronicle-Setup-0.1.0-x64.exe` from [GitHub Releases](https://github.com/MaximDascalasu/emailchronicle/releases/latest), run it and follow the setup wizard. Python and Qt are bundled; the installed app works offline. Installation is per user and does not require administrator rights. Start EmailChronicle from the Start menu; setup also offers an optional desktop shortcut. Supported target: Windows 10/11 x64.
+
+This preview installer is unsigned, so Windows may display an unknown-publisher or SmartScreen warning. Verify that the download comes from this repository; code signing is a future distribution improvement. `SHA256SUMS.txt` on the release contains the installer checksum. Verify a download with `Get-FileHash .\EmailChronicle-Setup-0.1.0-x64.exe -Algorithm SHA256`.
+
+Updates use the same installation directory and app ID. Run the newer setup to replace the program. Uninstall through Windows Settings; investigations and evidence in `%LOCALAPPDATA%\EmailChronicle` are retained. Keep evidence storage separate from the program installation folder. This version does not auto-download updates.
+
+## Build the installer
+
+On Windows x64 with Python 3.12 and [Inno Setup 6](https://jrsoftware.org/isdl.php) installed:
+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[test,build]"
+powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
+```
+
+The build runs pytest, uses PyInstaller to bundle the app, runs an isolated executable smoke test (Qt, SQLite, EML parsing and source integrity), then compiles the setup EXE and checksum into `installer-output`. Use `-Iscc "C:\path\to\ISCC.exe"` for a custom compiler path. Third-party license files and synthetic samples are included in the app bundle.
+
+GitHub Actions also builds an installer via **Actions → Build Windows installer → Run workflow**, with downloads under the completed run's artifacts. Pushing a version tag such as `v0.1.0` publishes the EXE and checksum to GitHub Releases after tests and the packaged executable smoke test pass. The tag must match the version in `pyproject.toml`.
+
 ## Windows setup
 
 Install Python 3.12 or newer from python.org, including the Python launcher. In PowerShell:
