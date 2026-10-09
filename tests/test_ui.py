@@ -49,6 +49,12 @@ def test_review_filter_reset_and_empty_states(tmp_path):
     assert window.import_button.isEnabled()
     assert window.source_button.isEnabled()
     assert window.metrics[0].text() == "2"
+    assert "2 visible / 2" in window.metric_notes[0].text()
+    assert "RAW DATE" in window.time_card.text()
+    window.density.setCurrentIndex(1)
+    assert window.table.verticalHeader().defaultSectionSize() == 82
+    window.density.setCurrentIndex(0)
+    assert window.table.verticalHeader().defaultSectionSize() == 58
     assert window.workflow_buttons[3].isEnabled()
     window.workflow_step(3)
     assert window.tabs.currentIndex() == 1

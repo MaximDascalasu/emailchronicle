@@ -21,30 +21,30 @@ from .store import Store
 STYLE = """
 QWidget { font-family: 'Segoe UI'; font-size: 13px; color: #24334b; }
 QMainWindow, QWidget { background: #f3f5f9; }
-QFrame#sidebar, QFrame#sidebar QLabel { background: #15243c; color: #c6d3e8; }
+QFrame#sidebar, QFrame#sidebar QLabel { background: #101a2c; color: #c6d3e8; }
 QLabel#brand { color: white; font-size: 17px; font-weight: 700; }
 QLabel#eyebrow { color: #8fa5c4; font-size: 10px; letter-spacing: 2px; }
 QLabel#sidebarNote { color: #aebed4; font-size: 12px; line-height: 1.5; }
 QLabel#navSelected { background: #263e60; color: white; border-radius: 7px; padding: 14px 6px; }
-QLabel#pageTitle { font-size: 26px; font-weight: 700; color: #172942; }
+QLabel#pageTitle { font-size: 22px; font-weight: 700; color: #172942; }
 QLabel#muted { color: #61718a; font-size: 11px; }
-QLabel#metric { font-size: 27px; font-weight: 700; color: #1a3558; }
+QLabel#metric { font-size: 25px; font-weight: 700; color: #1a3558; }
 QLabel#sectionTitle { font-size: 12px; font-weight: 700; color: #61718a; }
 QLabel#messageTitle { font-size: 17px; font-weight: 600; }
 QFrame#card { background: white; border: 1px solid #dce3ee; border-radius: 9px; }
 QFrame#card QLabel { background: transparent; }
-QPushButton { background: white; border: 1px solid #cbd6e5; border-radius: 6px; padding: 10px 14px; font-weight: 600; }
+QPushButton { background: white; border: 1px solid #cbd6e5; border-radius: 6px; padding: 7px 10px; font-weight: 600; }
 QPushButton:hover { background: #e9f0fa; border-color: #829ec4; }
 QPushButton:pressed { background: #dce8f9; }
 QPushButton:focus, QLineEdit:focus, QComboBox:focus { border: 2px solid #2868ce; }
 QPushButton#primary { background: #225ec4; color: white; border-color: #225ec4; }
 QPushButton#primary:hover { background: #184b9e; }
 QPushButton:disabled { color: #8995a8; background: #e9edf3; border-color: #dce3ee; }
-QLineEdit, QComboBox { background: white; border: 1px solid #cbd6e5; border-radius: 6px; padding: 9px; selection-background-color: #225ec4; }
+QLineEdit, QComboBox { background: white; border: 1px solid #cbd6e5; border-radius: 6px; padding: 7px; selection-background-color: #225ec4; }
 QComboBox QAbstractItemView { background: white; color: #24334b; selection-background-color: #dce9ff; }
 QTableWidget { background: white; alternate-background-color: #f8fafd; border: 1px solid #dce3ee; border-radius: 8px; selection-background-color: #dfebff; selection-color: #123d7c; }
-QTableWidget::item { padding: 8px; border-bottom: 1px solid #edf1f6; }
-QHeaderView::section { background: #eaf0f7; color: #54667f; font-size: 10px; font-weight: 700; border: 0; padding: 14px 8px; }
+QTableWidget::item { padding: 6px; border-bottom: 1px solid #edf1f6; }
+QHeaderView::section { background: #eaf0f7; color: #54667f; font-size: 10px; font-weight: 700; border: 0; padding: 10px 8px; }
 QTextEdit { background: white; border: 0; padding: 10px; selection-background-color: #dce9ff; }
 QTabWidget::pane { border: 1px solid #e0e6ee; background: white; }
 QTabBar::tab { background: #f2f5fa; padding: 11px 10px; color: #61718a; }
@@ -58,6 +58,7 @@ QPushButton[workflowActive="true"] { background: #225ec4; color: white; border-c
 QMenuBar, QMenu { background: white; }
 QMenu::item:selected { background: #dfebff; }
 QCheckBox { spacing: 8px; }
+QLabel#timeCard { background: #f5f8ff; border: 1px solid #dce6f6; border-radius: 6px; padding: 12px; font-family: 'Consolas'; font-size: 11px; color: #395273; }
 """
 
 class Window(QMainWindow):
@@ -66,7 +67,7 @@ class Window(QMainWindow):
         self.store = store
         self.rows = []
         self.setWindowTitle("EmailChronicle — local evidence workspace")
-        self.resize(1200, 800)
+        self.resize(1440, 900)
         help_menu = self.menuBar().addMenu("Help")
         help_menu.addAction("How to use EmailChronicle", self.show_help)
         help_menu.addAction("Third-party licenses", self.open_licenses)
@@ -79,9 +80,9 @@ class Window(QMainWindow):
         self.setCentralWidget(root)
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(248)
+        sidebar.setFixedWidth(224)
         nav = QVBoxLayout(sidebar)
-        nav.setContentsMargins(24, 30, 24, 24)
+        nav.setContentsMargins(16, 24, 16, 20)
         nav.setSpacing(16)
         brand = QLabel("EC  /  EmailChronicle")
         brand.setObjectName("brand")
@@ -112,8 +113,8 @@ class Window(QMainWindow):
         shell.addWidget(sidebar)
         main = QWidget()
         layout = QVBoxLayout(main)
-        layout.setContentsMargins(28, 24, 28, 16)
-        layout.setSpacing(18)
+        layout.setContentsMargins(20, 20, 20, 12)
+        layout.setSpacing(12)
         shell.addWidget(main, 1)
         top = QHBoxLayout()
         heading = QVBoxLayout()
@@ -158,17 +159,24 @@ class Window(QMainWindow):
         layout.addWidget(workflow)
         summary = QHBoxLayout()
         self.metrics = []
-        for label in ("VISIBLE MESSAGES", "NEEDS REVIEW", "DUPLICATE HINTS"):
+        self.metric_notes = []
+        for label in ("CHRONOLOGICAL EVENTS", "NEEDS INVESTIGATOR REVIEW", "MESSAGES WITH DUPLICATE HINTS"):
             card = QFrame()
             card.setObjectName("card")
             card_layout = QVBoxLayout(card)
-            card_layout.setContentsMargins(18, 14, 18, 14)
+            card_layout.setContentsMargins(14, 10, 14, 10)
+            card_layout.setSpacing(5)
             value = QLabel("0")
             value.setObjectName("metric")
             card_layout.addWidget(value)
             name = QLabel(label)
             name.setObjectName("muted")
             card_layout.addWidget(name)
+            note = QLabel()
+            note.setObjectName("muted")
+            note.setWordWrap(True)
+            card_layout.addWidget(note)
+            self.metric_notes.append(note)
             self.metrics.append(value)
             summary.addWidget(card)
         layout.addLayout(summary)
@@ -187,6 +195,11 @@ class Window(QMainWindow):
             widget.setClearButtonEnabled(True)
             filters.addWidget(widget, 2 if widget is self.keyword else 1)
             widget.textChanged.connect(self.refresh)
+        self.density = QComboBox()
+        self.density.addItems(["Compact", "Comfortable"])
+        self.density.setAccessibleName("Timeline row density")
+        self.density.currentIndexChanged.connect(self.change_density)
+        filters.addWidget(self.density)
         clear = QPushButton("Reset")
         clear.clicked.connect(self.clear_filters)
         filters.addWidget(clear)
@@ -214,7 +227,7 @@ class Window(QMainWindow):
         self.table.setWordWrap(False)
         self.table.setAlternatingRowColors(True)
         self.table.verticalHeader().hide()
-        self.table.verticalHeader().setDefaultSectionSize(54)
+        self.table.verticalHeader().setDefaultSectionSize(58)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setStretchLastSection(True)
         for index, width in enumerate((155, 175, 240, 90, 180)):
@@ -241,7 +254,20 @@ class Window(QMainWindow):
         self.detail = QTextEdit()
         self.detail.setReadOnly(True)
         self.detail.setAccessibleName("Message content and provenance")
-        self.tabs.addTab(self.body_view, "Message")
+        message_panel = QWidget()
+        message_layout = QVBoxLayout(message_panel)
+        message_layout.setContentsMargins(10, 10, 10, 10)
+        message_layout.setSpacing(10)
+        self.time_card = QLabel("Select a message to inspect its date metadata.")
+        self.time_card.setTextFormat(Qt.TextFormat.PlainText)
+        self.time_card.setWordWrap(True)
+        self.time_card.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.time_card.setObjectName("timeCard")
+        self.time_card.setAccessibleName("Date and time breakdown")
+        message_layout.addWidget(self.time_card)
+        self.body_view.setMinimumHeight(140)
+        message_layout.addWidget(self.body_view, 1)
+        self.tabs.addTab(message_panel, "Message")
         self.tabs.addTab(self.detail, "Provenance & review")
         inspect_layout.addWidget(self.tabs)
         self.source_button = QPushButton("Open verified source copy")
@@ -264,6 +290,9 @@ class Window(QMainWindow):
             self.addAction(action)
         self.cases.currentIndexChanged.connect(self.refresh)
         self.reload_cases()
+
+    def change_density(self):
+        self.table.verticalHeader().setDefaultSectionSize(58 if self.density.currentIndex() == 0 else 82)
 
     def clear_filters(self):
         for field in (self.sender, self.keyword, self.date_from, self.date_to):
@@ -360,7 +389,8 @@ class Window(QMainWindow):
 
     def refresh(self):
         case = self.cases.currentData()
-        has_evidence = bool(self.store.timeline(case)) if case is not None else False
+        case_rows = self.store.timeline(case) if case is not None else []
+        has_evidence = bool(case_rows)
         self.workflow_buttons[1].setEnabled(case is not None)
         for button in self.workflow_buttons[2:]:
             button.setEnabled(has_evidence)
@@ -376,6 +406,7 @@ class Window(QMainWindow):
         self.import_button.setEnabled(self.cases.currentData() is not None)
         self.source_button.setEnabled(False)
         self.body_view.clear()
+        self.time_card.setText("Select a message to inspect its date metadata.")
         self.message_title.setText("Select a message")
         try:
             start, end = self.date_from.text().strip(), self.date_to.text().strip()
@@ -402,6 +433,9 @@ class Window(QMainWindow):
         self.metrics[0].setText(str(len(self.rows)))
         self.metrics[1].setText(str(sum(bool(json.loads(r["flags"])) or bool(r["duplicate_count"]) for r in self.rows)))
         self.metrics[2].setText(str(sum(bool(r["duplicate_count"]) for r in self.rows)))
+        self.metric_notes[0].setText(f"{len(self.rows)} visible / {len(case_rows)} in investigation")
+        self.metric_notes[1].setText("Dates, quoted headers and duplicate hints")
+        self.metric_notes[2].setText("Review hints · occurrences remain separate")
         self.export_button.setEnabled(bool(self.rows))
         self.empty.setVisible(not self.rows)
         self.empty.setText("No messages match these filters. Try Reset." if self.cases.currentData() is not None else
@@ -414,7 +448,7 @@ class Window(QMainWindow):
             if row["duplicate_count"]:
                 flags.append("likely_duplicate")
             display_date = row["date_utc"].replace("T", " ").replace("+00:00", "") if row["date_utc"] else "Undated / review"
-            for col, value in enumerate((display_date, row["sender"] or "Unknown",
+            for col, value in enumerate((display_date + "\nRaw: " + (row["raw_date"] or "[missing date header]"), (row["sender"] or "Unknown") + "\nTo: " + (row["recipients"] or "[missing]"),
                                          row["subject"] or "(no subject)", row["kind"].capitalize(),
                                          ", ".join(flag.replace("_", " ").capitalize() for flag in flags))):
                 item = QTableWidgetItem(value)
@@ -435,6 +469,12 @@ class Window(QMainWindow):
         row = self.selected()
         if row:
             self.source_button.setEnabled(True)
+            self.time_card.setText(
+                "DATE & TIME BREAKDOWN\n\n"
+                f"NORMALIZED UTC   {row['date_utc'] or '[unknown — review required]'}\n"
+                f"RAW DATE   {row['raw_date'] or '[missing date header]'}\n"
+                f"ORIGIN   {row['kind']} · {row['locator']}\n"
+                "Known offsets are normalized to UTC. Unknown dates are never guessed.")
             self.message_title.setText(row["subject"] or "(no subject)")
             self.body_view.setPlainText(f"From: {row['sender'] or '[missing]'}\nTo: {row['recipients'] or '[missing]'}\n"
                                        f"UTC: {row['date_utc'] or '[unknown — review required]'}\n\n{row['body']}")
