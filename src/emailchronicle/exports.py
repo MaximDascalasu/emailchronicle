@@ -100,7 +100,7 @@ class Graphic:
 def charts(folder, rows):
     # Paginate for readability: every occurrence appears, without an unbounded canvas.
     pages=[]
-    dated=[r for r in rows if r['date_utc']]
+    dated=sorted((r for r in rows if r['date_utc']), key=lambda r: (r['date_utc'], r['id']))
     for kind in ('timeline','gantt'):
         groups=[dated[i:i+24] for i in range(0,len(dated),24)] or [[]]
         for page, group in enumerate(groups,1):
