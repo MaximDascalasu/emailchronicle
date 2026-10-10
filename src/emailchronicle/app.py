@@ -12,7 +12,7 @@ from PySide6.QtGui import QDesktopServices, QColor, QAction, QKeySequence
 from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QHBoxLayout,
     QInputDialog, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QSplitter, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
-    QFrame, QHeaderView, QTabWidget, QCheckBox)
+    QFrame, QHeaderView, QTabWidget, QCheckBox, QMenu)
 
 from .store import Store
 
@@ -125,8 +125,12 @@ class Window(QMainWindow):
         caption.setObjectName("muted")
         heading.addWidget(caption)
         top.addLayout(heading, 1)
-        self.export_button = QPushButton("Export CSV")
-        self.export_button.clicked.connect(self.export_csv)
+        self.export_button = QPushButton("Export ▾")
+        export_menu = QMenu(self.export_button)
+        export_menu.addAction("CSV · current visible messages", self.export_csv)
+        export_menu.addAction("Report bundle · PDF, Excel & graphs", self.export_reports)
+        self.export_button.setMenu(export_menu)
+        self.export_button.setToolTip("Export visible messages to CSV or a complete report bundle")
         top.addWidget(self.export_button)
         self.import_button = QPushButton("+  Import evidence")
         self.import_button.setObjectName("primary")
@@ -141,7 +145,7 @@ class Window(QMainWindow):
         journey.setSpacing(8)
         steps = QHBoxLayout()
         self.workflow_buttons = []
-        for index, label in enumerate(("1  Create case", "2  Import EML", "3  Read timeline", "4  Check sources", "5  Export CSV")):
+        for index, label in enumerate(("1  Create case", "2  Import EML", "3  Read timeline", "4  Check sources", "5  Export")):
             button = QPushButton(label)
             button.setAccessibleName("Workflow step " + label)
             button.clicked.connect(lambda checked=False, step=index: self.workflow_step(step))
@@ -328,7 +332,7 @@ class Window(QMainWindow):
         elif step == 4:
             self.set_guidance(4, "Export saves only the messages visible under your current filters. Include undated and flagged messages where relevant; CSV keeps provenance and review flags.")
             if self.rows:
-                self.export_csv()
+                self.export_button.showMenu()
 
     def show_help(self):
         QMessageBox.information(self, "How EmailChronicle works",
@@ -336,7 +340,7 @@ class Window(QMainWindow):
             "2. The app preserves a hashed copy of each file and extracts messages.\n"
             "3. Known dates are converted to UTC and sorted oldest first.\n"
             "4. Review quoted headers, missing dates and likely duplicates manually.\n"
-            "5. Select a message to inspect its content and source; export visible rows to CSV.\n\n"
+            "5. Select a message to inspect its content and source. Export visible rows to CSV or a PDF/Excel/graph bundle.\n\n"
             "Original files are never modified by the importer. All evidence stays in your local workspace.\n"
             "Quoted headers are unverified text. No missing times or senders are invented.\n\n"
             f"Workspace: {self.store.directory}")
@@ -519,6 +523,36 @@ class Window(QMainWindow):
                 self.store.audit(self.cases.currentData(), "export_csv", {"path": str(target), "messages": len(self.rows)})
         except (OSError, ValueError) as exc:
             QMessageBox.warning(self, "Export failed", str(exc))
+
+    def export_reports(self):
+        if self.cases.currentData() is None or not self.rows:
+            QMessageBox.information(self, "Nothing to export", "Select an investigation with visible messages first.")
+            return
+        answer = QMessageBox.question(self, "Export visible timeline",
+            f"Export {len(self.rows)} visible message occurrences with the current filters?\n\n"
+            "Creates a PDF report, Excel workbook, timeline, Gantt-style event lanes and communication graphs "
+            "in PNG and SVG. Includes complete message content and source paths.\n\n"
+            "Duplicate occurrences remain included. Undated messages stay off the time axis. "
+            "The audit worksheet covers the whole investigation. No manual review completion is inferred.")
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        parent = QFileDialog.getExistingDirectory(self, "Choose report destination outside the evidence workspace")
+        if not parent:
+            return
+        from .exports import export_bundle
+        filters = {"sender": self.sender.text(), "keywords": self.keyword.text(),
+                   "utc_from": self.date_from.text(), "utc_to": self.date_to.text(),
+                   "needs_review_only": self.review_only.isChecked()}
+        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+        try:
+            folder = export_bundle(self.store, self.cases.currentData(), self.rows, parent, filters)
+        except Exception as exc:
+            QMessageBox.warning(self, "Report export failed", str(exc))
+        else:
+            QMessageBox.information(self, "Report bundle ready", f"Saved reports and graphs to:\n{folder}\n\n"
+                "Review the scope and warnings before sharing. SHA256SUMS.json records output hashes.")
+        finally:
+            QApplication.restoreOverrideCursor()
 
 
 def safe_cell(value):

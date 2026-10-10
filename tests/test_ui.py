@@ -35,6 +35,24 @@ def test_csv_formula_escaping():
     assert safe_cell("normal") == "normal"
 
 
+def test_report_export_action(tmp_path, monkeypatch):
+    from emailchronicle import app as module
+    from PySide6.QtWidgets import QMessageBox
+    app = QApplication.instance() or QApplication([])
+    store = Store(tmp_path / "data")
+    case = store.create_investigation("Reports")
+    store.import_eml(case, SAMPLES / "01-initial.eml")
+    window = Window(store)
+    monkeypatch.setattr(module.QMessageBox, "question", lambda *a: QMessageBox.StandardButton.Yes)
+    monkeypatch.setattr(module.QMessageBox, "information", lambda *a: None)
+    monkeypatch.setattr(module.QFileDialog, "getExistingDirectory", lambda *a: str(tmp_path))
+    window.export_reports()
+    assert len(list(tmp_path.glob("EmailChronicle-*/investigation.xlsx"))) == 1
+    assert len(list(tmp_path.glob("EmailChronicle-*/investigation.pdf"))) == 1
+    window.close()
+    store.close()
+
+
 def test_review_filter_reset_and_empty_states(tmp_path):
     app = QApplication.instance() or QApplication([])
     store = Store(tmp_path)

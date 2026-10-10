@@ -103,9 +103,38 @@ before asking the Windows EML viewer to open it. CSV export includes the visible
 rows, review flags and source hash. Everything lives in the chosen local data
 directory; there are no cloud or AI calls from the installed app.
 
-The current app supports EML and CSV. It does not yet import MSG/PDF/DOCX/ZIP,
-export native Excel files, encrypt the workspace, or provide a tamper-proof audit
+The current app supports EML, CSV, PDF reports, Excel workbooks and graphs. It does not yet import MSG/PDF/DOCX/ZIP,
+encrypt the workspace, or provide a tamper-proof audit
 log. See the [prioritized roadmap](docs/ROADMAP.md).
+
+## Reports and graphs
+
+Choose **Export → Report bundle**, confirm the visible-message scope and select a
+folder outside the evidence workspace. A uniquely named output folder contains:
+
+- `investigation.pdf`: case details, active filters, warnings, charts, complete
+  message content and provenance, with page numbers.
+- `investigation.xlsx`: Overview, Messages, Evidence, Review, Communications and
+  Audit sheets with frozen headers, filters and literal evidence strings rather
+  than formulas. Long message bodies are split into numbered columns.
+- Timeline, Gantt-style event lanes and directed communication graphs in **PNG,
+  SVG and PDF**, paginated to include all occurrences.
+- `export-data.json` with complete supporting data, and `SHA256SUMS.json` with
+  generated-file hashes.
+
+Graphs count every visible occurrence, including likely duplicates. Quoted and
+original communication assertions remain separate. Missing/unparseable parties
+receive no invented nodes. Undated messages stay off the time axis. Gantt-style
+lanes show point events, never inferred durations. Abbreviated graph labels have
+full values in the workbook and JSON. Reports are unsigned and certify no conclusions.
+
+The Evidence sheet includes sources for visible messages. **Audit covers the whole
+investigation**, potentially revealing information beyond current filters. Review
+before sharing: the bundle includes complete content and local source paths.
+The export audit event is recorded after success, so the exported audit snapshot
+precedes its own export event. Failures leave a clearly marked partial folder.
+Export runs on the UI thread and is intended for small collections. Excel row/cell
+limits cause an explicit failure rather than silent evidence truncation.
 
 ## Evidence model and limits
 

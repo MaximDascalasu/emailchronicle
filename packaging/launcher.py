@@ -32,6 +32,11 @@ def smoke_test(report):
             row = window.rows[0]
             assert row["date_utc"] == "2026-07-07T11:00:00+00:00"
             assert store.verified_source(row["id"]).read_bytes() == original.read_bytes()
+            from emailchronicle.exports import export_bundle
+            exports = export_bundle(store, investigation, store.timeline(investigation), folder, {})
+            assert (exports / "investigation.pdf").read_bytes().startswith(b"%PDF")
+            assert (exports / "investigation.xlsx").is_file()
+            assert (exports / "communication-001.svg").is_file()
             window.close()
             Path(report).write_text(json.dumps({"status": "ok", "qt": True, "sqlite": True,
                                                "eml": True, "hash_verification": True}), encoding="utf-8")
