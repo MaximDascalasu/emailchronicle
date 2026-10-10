@@ -37,6 +37,12 @@ def smoke_test(report):
             assert (exports / "investigation.pdf").read_bytes().startswith(b"%PDF")
             assert (exports / "investigation.xlsx").is_file()
             assert (exports / "communication-001.svg").is_file()
+            from emailchronicle.search import search
+            groups = [{'name': 'Content', 'terms': ['material', 'content'], 'enabled': True}]
+            store.save_search_dictionary(investigation, groups)
+            results = search(store.timeline(investigation), 'material', 'expanded', groups)
+            assert len(results) == 1 and results[0]['search_matches'][0]['reason'] == 'synonym'
+            assert store.search_dictionary(investigation)['version'] == 1
             window.close()
             Path(report).write_text(json.dumps({"status": "ok", "qt": True, "sqlite": True,
                                                "eml": True, "hash_verification": True}), encoding="utf-8")

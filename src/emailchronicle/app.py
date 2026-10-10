@@ -8,13 +8,14 @@ from pathlib import Path
 import sys
 
 from PySide6.QtCore import Qt, QUrl
-from PySide6.QtGui import QDesktopServices, QColor, QAction, QKeySequence
+from PySide6.QtGui import QDesktopServices, QColor, QAction, QKeySequence, QTextCursor
 from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QHBoxLayout,
     QInputDialog, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QSplitter, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
-    QFrame, QHeaderView, QTabWidget, QCheckBox, QMenu)
+    QFrame, QHeaderView, QTabWidget, QCheckBox, QMenu, QDialog, QDialogButtonBox)
 
 from .store import Store
+from .search import search, plan, pattern
 
 
 
@@ -208,8 +209,30 @@ class Window(QMainWindow):
         clear.clicked.connect(self.clear_filters)
         filters.addWidget(clear)
         layout.addLayout(filters)
+        search_tools = QHBoxLayout()
+        self.search_mode = QComboBox()
+        self.search_mode.addItem("Exact terms / phrases", "exact")
+        self.search_mode.addItem("Expanded · selected synonyms", "expanded")
+        self.search_mode.addItem("Approximate · spelling tolerance", "approximate")
+        self.search_mode.setAccessibleName("Search matching mode")
+        self.search_mode.currentIndexChanged.connect(self.refresh)
+        search_tools.addWidget(self.search_mode)
+        dictionary_button = QPushButton("Synonyms & aliases…")
+        dictionary_button.clicked.connect(self.edit_dictionary)
+        search_tools.addWidget(dictionary_button)
+        self.relevance = QCheckBox("Rank by relevance")
+        self.relevance.toggled.connect(self.refresh)
+        search_tools.addWidget(self.relevance)
+        search_tools.addStretch()
+        layout.addLayout(search_tools)
+        self.search_info = QLabel("All terms required. Use quotes for phrases. No AI or external requests.")
+        self.search_info.setTextFormat(Qt.TextFormat.PlainText)
+        self.search_info.setObjectName("muted")
+        self.search_info.setWordWrap(True)
+        layout.addWidget(self.search_info)
         tools = QHBoxLayout()
         order = QLabel("TIMELINE   /   Oldest → newest · UTC")
+        self.order_label = order
         order.setObjectName("muted")
         tools.addWidget(order, 1)
         self.review_only = QCheckBox("Needs review only")
@@ -250,6 +273,11 @@ class Window(QMainWindow):
         self.message_title.setWordWrap(True)
         self.message_title.setObjectName("messageTitle")
         inspect_layout.addWidget(self.message_title)
+        self.match_info = QLabel()
+        self.match_info.setTextFormat(Qt.TextFormat.PlainText)
+        self.match_info.setWordWrap(True)
+        self.match_info.setObjectName("muted")
+        inspect_layout.addWidget(self.match_info)
         self.tabs = QTabWidget()
         self.body_view = QTextEdit()
         self.body_view.setReadOnly(True)
@@ -306,7 +334,63 @@ class Window(QMainWindow):
         self.review_only.blockSignals(True)
         self.review_only.setChecked(False)
         self.review_only.blockSignals(False)
+        self.search_mode.blockSignals(True)
+        self.search_mode.setCurrentIndex(0)
+        self.search_mode.blockSignals(False)
+        self.relevance.blockSignals(True)
+        self.relevance.setChecked(False)
+        self.relevance.blockSignals(False)
         self.refresh()
+
+    def search_settings(self):
+        return {"query": self.keyword.text(), "mode": self.search_mode.currentData(),
+                "rank_by_relevance": self.relevance.isChecked(),
+                "dictionary": self.store.search_dictionary(self.cases.currentData()),
+                "semantics": "AND between terms; quoted phrases; whole-word case-insensitive matches; approximate cutoff 0.84 for alphabetic terms of 5+ characters"}
+
+    def edit_dictionary(self):
+        case = self.cases.currentData()
+        if case is None:
+            QMessageBox.information(self, "Investigation required", "Create an investigation first.")
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Investigation synonyms & aliases")
+        dialog.resize(680, 440)
+        layout = QVBoxLayout(dialog)
+        label = QLabel("One group per line: + Group name | term | synonym | alias\n"
+            "Use + to enable a group, - to exclude it. No groups are enabled by default.\n"
+            "Example: + Payment | payment | remittance\n"
+            "Only complete query terms or quoted phrases expand. Context matters: review ambiguous synonyms.\n"
+            "Changes apply only to this investigation and are versioned in its audit trail.")
+        label.setWordWrap(True)
+        layout.addWidget(label)
+        editor = QTextEdit()
+        editor.setAcceptRichText(False)
+        editor.setAccessibleName("Synonym groups and selected expansions")
+        groups = self.store.search_dictionary(case)['groups']
+        editor.setPlainText('\n'.join(('+' if g['enabled'] else '-')+' '+g['name']+' | '+' | '.join(g['terms']) for g in groups))
+        layout.addWidget(editor)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Save | QDialogButtonBox.StandardButton.Cancel)
+        buttons.rejected.connect(dialog.reject)
+        def save():
+            try:
+                result = []
+                for line in editor.toPlainText().splitlines():
+                    if not line.strip():
+                        continue
+                    parts = [p.strip() for p in line.strip()[1:].split('|')]
+                    if line.strip()[0] not in '+-' or len(parts) < 3:
+                        raise ValueError('Use + or -, a group name, and at least two terms separated by |.')
+                    result.append({'name': parts[0], 'terms': parts[1:], 'enabled': line.strip().startswith('+')})
+                self.store.save_search_dictionary(case, result)
+            except ValueError as exc:
+                QMessageBox.warning(dialog, "Check synonym groups", str(exc))
+            else:
+                dialog.accept()
+        buttons.accepted.connect(save)
+        layout.addWidget(buttons)
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            self.refresh()
 
     def set_guidance(self, step, text):
         self.guidance.setText(text)
@@ -410,6 +494,7 @@ class Window(QMainWindow):
         self.import_button.setEnabled(self.cases.currentData() is not None)
         self.source_button.setEnabled(False)
         self.body_view.clear()
+        self.match_info.clear()
         self.time_card.setText("Select a message to inspect its date metadata.")
         self.message_title.setText("Select a message")
         try:
@@ -430,8 +515,23 @@ class Window(QMainWindow):
             self.empty.show()
             self.statusBar().showMessage("Invalid date range. Use YYYY-MM-DD, with start before end.")
             return
-        self.rows = self.store.timeline(self.cases.currentData(), self.sender.text(), self.keyword.text(),
+        candidates = self.store.timeline(self.cases.currentData(), self.sender.text(), "",
                                         self.date_from.text().strip(), self.date_to.text().strip())
+        settings = self.search_settings()
+        try:
+            query_plan = plan(settings['query'], settings['mode'], settings['dictionary']['groups'])
+            self.rows = search(candidates, settings['query'], settings['mode'], settings['dictionary']['groups'], settings['rank_by_relevance'])
+        except ValueError as exc:
+            self.rows = []
+            self.search_info.setText(str(exc))
+        else:
+            expansions = [f"{term} → " + ', '.join(actual for actual, reason, group in alternatives if reason != 'exact')
+                          for term, alternatives in query_plan if len(alternatives) > 1]
+            self.search_info.setText("All terms required · quote phrases · dictionary v" + str(settings['dictionary']['version']) +
+                (" · Selected expansions: " + '; '.join(expansions) if expansions else " · No synonym expansions selected for this query") +
+                (" · Approximate matches are spelling suggestions, not equivalent meanings." if settings['mode'] == 'approximate' else ""))
+        self.order_label.setText("RESULTS   /   Relevance · chronology breaks ties" if self.relevance.isChecked() and self.keyword.text().strip()
+                                else "TIMELINE   /   Oldest → newest · UTC")
         if self.review_only.isChecked():
             self.rows = [row for row in self.rows if json.loads(row["flags"]) or row["duplicate_count"]]
         self.metrics[0].setText(str(len(self.rows)))
@@ -482,6 +582,23 @@ class Window(QMainWindow):
             self.message_title.setText(row["subject"] or "(no subject)")
             self.body_view.setPlainText(f"From: {row['sender'] or '[missing]'}\nTo: {row['recipients'] or '[missing]'}\n"
                                        f"UTC: {row['date_utc'] or '[unknown — review required]'}\n\n{row['body']}")
+            matches = row.get('search_matches', [])
+            explanations = list(dict.fromkeys(f"{m['query']} → {m['matched']} ({m['reason']}, {m['field']}" +
+                (f", group: {m['group']}" if m['group'] else "") + ")" for m in matches))
+            self.match_info.setText("Matched: " + '; '.join(explanations[:8]) if explanations else "")
+            selections = []
+            content = self.body_view.toPlainText()
+            for term in dict.fromkeys(m['matched'] for m in matches):
+                for hit in pattern(term).finditer(content):
+                    selection = QTextEdit.ExtraSelection()
+                    cursor = self.body_view.textCursor()
+                    # Qt cursor offsets count UTF-16 code units, unlike Python string indices.
+                    cursor.setPosition(len(content[:hit.start()].encode('utf-16-le')) // 2)
+                    cursor.setPosition(len(content[:hit.end()].encode('utf-16-le')) // 2, QTextCursor.MoveMode.KeepAnchor)
+                    selection.cursor = cursor
+                    selection.format.setBackground(QColor('#fff0a8'))
+                    selections.append(selection)
+            self.body_view.setExtraSelections(selections)
             self.detail.setPlainText(
                 f"From: {row['sender'] or '[missing]'}\nTo: {row['recipients'] or '[missing]'}\n"
                 f"Subject: {row['subject'] or '[missing]'}\nOriginal date text: {row['raw_date'] or '[missing]'}\n"
@@ -512,15 +629,16 @@ class Window(QMainWindow):
             if target in protected or target.is_relative_to(self.store.directory):
                 raise ValueError("Choose an export location outside the workspace and original evidence files.")
             fields = ["date_utc", "raw_date", "sender", "recipients", "subject", "body", "kind", "flags",
-                      "duplicate_count", "locator", "original_path", "sha256"]
+                      "duplicate_count", "locator", "original_path", "sha256", "search_score", "search_matches", "search_settings"]
             with target.open("w", encoding="utf-8-sig", newline="") as stream:
                 writer = csv.writer(stream)
                 writer.writerow(fields)
                 for row in self.rows:
                     # Keep spreadsheet consumers from interpreting evidence text as formulas.
-                    writer.writerow([safe_cell(row[key]) for key in fields])
+                    writer.writerow([safe_cell(json.dumps(self.search_settings(), ensure_ascii=False) if key == 'search_settings' else
+                        json.dumps(row[key], ensure_ascii=False) if key == 'search_matches' else row[key]) for key in fields])
             with self.store.db:
-                self.store.audit(self.cases.currentData(), "export_csv", {"path": str(target), "messages": len(self.rows)})
+                self.store.audit(self.cases.currentData(), "export_csv", {"path": str(target), "messages": len(self.rows), "search": self.search_settings()})
         except (OSError, ValueError) as exc:
             QMessageBox.warning(self, "Export failed", str(exc))
 
@@ -543,6 +661,7 @@ class Window(QMainWindow):
         filters = {"sender": self.sender.text(), "keywords": self.keyword.text(),
                    "utc_from": self.date_from.text(), "utc_to": self.date_to.text(),
                    "needs_review_only": self.review_only.isChecked()}
+        filters['search'] = self.search_settings()
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             folder = export_bundle(self.store, self.cases.currentData(), self.rows, parent, filters)

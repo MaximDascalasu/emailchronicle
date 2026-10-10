@@ -24,10 +24,13 @@ CREATE TABLE IF NOT EXISTS messages (
  locator TEXT NOT NULL, message_id TEXT, flags TEXT NOT NULL, fingerprint TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS messages_date ON messages(date_utc);
 CREATE INDEX IF NOT EXISTS messages_fingerprint ON messages(fingerprint);
+CREATE TABLE IF NOT EXISTS search_dictionaries (
+ investigation_id INTEGER PRIMARY KEY REFERENCES investigations(id),
+ version INTEGER NOT NULL, groups_json TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS audit (
  id INTEGER PRIMARY KEY, investigation_id INTEGER REFERENCES investigations(id),
  time_utc TEXT NOT NULL, action TEXT NOT NULL, details TEXT NOT NULL);
-PRAGMA user_version=1;
+PRAGMA user_version=2;
 """
 
 
@@ -47,6 +50,31 @@ class Store:
 
     def close(self):
         self.db.close()
+
+    def search_dictionary(self, investigation):
+        row = self.db.execute('SELECT * FROM search_dictionaries WHERE investigation_id=?', (investigation,)).fetchone()
+        return {'version': row['version'], 'groups': json.loads(row['groups_json'])} if row else {'version': 0, 'groups': []}
+
+    def save_search_dictionary(self, investigation, groups):
+        if not self.db.execute('SELECT 1 FROM investigations WHERE id=?', (investigation,)).fetchone():
+            raise ValueError('Select an investigation first')
+        if len(groups) > 100:
+            raise ValueError('Use at most 100 synonym groups')
+        names = set()
+        for group in groups:
+            if not group['name'].strip() or group['name'].casefold() in names:
+                raise ValueError('Group names must be nonempty and unique')
+            names.add(group['name'].casefold())
+            if not 2 <= len(group['terms']) <= 50 or any(not t.strip() or len(t) > 150 for t in group['terms']):
+                raise ValueError('Each group needs 2–50 terms, each at most 150 characters')
+            if len({t.casefold() for t in group['terms']}) != len(group['terms']):
+                raise ValueError('Terms in a group must be unique')
+        before = self.search_dictionary(investigation)
+        with self.db:
+            version = before['version'] + 1
+            self.db.execute('INSERT INTO search_dictionaries VALUES(?,?,?) ON CONFLICT(investigation_id) DO UPDATE SET version=excluded.version, groups_json=excluded.groups_json',
+                            (investigation, version, json.dumps(groups)))
+            self.audit(investigation, 'search_dictionary_changed', {'before': before, 'after': {'version': version, 'groups': groups}})
 
     def audit(self, investigation, action, details):
         self.db.execute("INSERT INTO audit(investigation_id,time_utc,action,details) VALUES(?,?,?,?)",

@@ -154,3 +154,46 @@ Exact file duplicates are skipped per investigation and logged with their submit
 - `tests`: synthetic parser, persistence, integrity, duplication, ordering and UI smoke tests.
 
 Next increments should introduce format adapters that return the same message model and preserve format-specific provenance. MSG, PDF, DOCX and safe ZIP import, native Excel export, richer review/edit workflows, large-file background ingestion and optional Gmail/Outlook connectors are deliberately deferred until after this slice. Import currently runs on the UI thread and is intended for small evidence batches. No credentials or real evidence are included in this repository.
+
+
+## Explainable search without AI
+
+Choose **Exact**, **Expanded**, or **Approximate** above the timeline. All query
+terms are required (AND); put multiword phrases in double quotes. Matching is
+case-insensitive and uses whole-word boundaries across subject, body, sender,
+recipients and Message-ID. Sender and UTC date filters still apply. This replaces
+the original keyword substring filter in the desktop interface. Search operators
+such as OR/NOT and automatic language understanding are not implemented.
+
+Open **Synonyms & aliases…** to define groups for the selected investigation:
+
+```text
++ Payment | payment | remittance
++ Project | Phoenix | PHX
+- Ambiguous terms | payment | settlement
+```
+
+`+` explicitly enables a group; `-` excludes it. No default dictionaries are
+silently enabled. In Expanded mode, searching `Phoenix payment` also finds
+`PHX remittance` with these groups enabled. Quote a multiword dictionary term to
+expand it as a unit. Expansions are direct, bidirectional within a selected group,
+and not recursively chained across groups. Save versions and complete before/after
+definitions are recorded in the local audit trail. They never modify email evidence.
+
+Approximate mode also uses selected synonym groups and offers spelling tolerance
+for the original query terms: alphabetic words of at least five characters,
+length difference at most one, SequenceMatcher similarity at least 0.84. It does
+not infer equivalence of meaning. Exact and synonym matches take precedence over
+spelling suggestions for each term. Dates, numbers and short words are not fuzzed.
+
+Each selected result explains its matches; matching words are highlighted in the
+message inspector. **Rank by relevance** is optional: exact terms score 100,
+synonyms 60, approximate suggestions 25, taking the best match per required term.
+Ties retain timeline order. Default results remain chronological, with unknown
+dates last. Reset clears the query and returns to Exact chronological mode.
+
+CSV includes search settings, dictionary snapshot, score and match explanations.
+Report bundles preserve those settings and explanations as well. Scores indicate
+search matching strength, never evidential importance or credibility. Search is
+performed locally over the selected investigation and is designed for small
+collections; a persistent full-text index is a future performance improvement.

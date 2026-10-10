@@ -14,7 +14,8 @@ from PySide6.QtCore import QRectF, Qt
 from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPdfWriter, QPageSize, QTextDocument
 
 FIELDS = ['id', 'date_utc', 'raw_date', 'sender', 'recipients', 'subject', 'body', 'kind',
-          'message_id', 'flags', 'duplicate_count', 'locator', 'original_path', 'stored_path', 'sha256']
+          'message_id', 'flags', 'duplicate_count', 'locator', 'original_path', 'stored_path', 'sha256',
+          'search_score', 'search_matches']
 NOTICE = ('UTC throughout. Undated messages are not assigned times. Quoted headers are unverified claims. '
           'Duplicate hints are not merged; graph counts include all exported occurrences. '
           'File hashes establish byte integrity, not author identity. Audit records are locally editable.')
@@ -152,7 +153,7 @@ def pdf_report(path, rows, metadata, images):
     html += [f'<p>{NOTICE}</p><p>No conclusions or manual review completion are inferred.</p>']
     for image in images:
         html.append(f'<h2 style="page-break-before:always">{escape(image.stem)}</h2><img src="{image.as_uri()}" width="650"/>')
-    html.append('<h2 style="page-break-before:always">Messages · dated oldest first, undated last</h2>')
+    html.append('<h2 style="page-break-before:always">Messages · exported visible order (see search settings)</h2>')
     for r in rows:
         html.append(f"<h3>Message #{r['id']} · {escape(r['subject'] or '[no subject]')}</h3>")
         for key in FIELDS:
@@ -175,6 +176,9 @@ def export_bundle(store, investigation, rows, parent, filters):
     case=store.db.execute('SELECT name FROM investigations WHERE id=?',(investigation,)).fetchone()
     if not case:raise ValueError('Select an investigation first')
     rows=[dict(r) for r in rows]
+    for row in rows:
+        row.setdefault('search_score', 0)
+        row['search_matches'] = json.dumps(row.get('search_matches', []), ensure_ascii=False)
     allowed={r['id'] for r in store.timeline(investigation)}
     if any(r['id'] not in allowed for r in rows):raise ValueError('Messages do not belong to selected investigation')
     folder=parent/('EmailChronicle-'+datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')+'-'+uuid.uuid4().hex[:8])
