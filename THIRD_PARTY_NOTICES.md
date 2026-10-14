@@ -44,8 +44,10 @@ does not use. Builds fail if unreviewed Qt DLLs or plugins reach the final bundl
 
 `bundle-inventory.json` identifies shipped files and hashes. It is a build
 inventory, not proof of legal compliance. Commercial release still requires
-confirmation of the copyright owner's chosen application license, publisher
-identity, Microsoft runtime redistribution entitlement and any desired Inno
+publisher identity, Microsoft runtime redistribution entitlement and any desired Inno
 Setup commercial license purchase. No purchased license or certificate exists
 merely because a build completed. Obtain legal review before relying on a claim
 that a commercial distribution meets every applicable legal requirement.
+
+EmailChronicle's own source uses MIT; see the bundled LICENSE. This grant does
+not replace the separate licences of the runtime and build components above.

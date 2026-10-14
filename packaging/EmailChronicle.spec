@@ -8,7 +8,7 @@ from compliance import permitted_binary, NOTICE_DIRECTORY
 notices = root / 'build' / 'compliance' / NOTICE_DIRECTORY
 if not (notices / 'source-index.json').exists():
     raise RuntimeError('Run packaging/compliance.py before bundling')
-datas = [(str(root / 'README.md'), '.'), (str(root / 'samples'), 'samples'),
+datas = [(str(root / 'README.md'), '.'), (str(root / 'LICENSE'), '.'), (str(root / 'samples'), 'samples'),
          (str(root / 'THIRD_PARTY_NOTICES.md'), '.'), (str(notices), 'third-party-notices')]
 
 a = Analysis([str(root / 'packaging' / 'launcher.py')], pathex=[str(root / 'src')],

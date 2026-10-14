@@ -2,7 +2,7 @@
 /**
  * Plugin Name: EmailChronicle Early Access
  * Description: Request access or enter a shared code; private installer delivery.
- * Version: 0.2.0
+ * Version: 0.2.1
  */
 if (!defined('ABSPATH')) exit;
 final class EC_Access {
@@ -39,7 +39,7 @@ final class EC_Access {
         }
         if (!self::installer()) return '<p role="status"><strong>Download coming soon.</strong> The installer is awaiting testing on another laptop.</p>';
         $url=add_query_arg('action','ec_preview_download',admin_url('admin-post.php'));
-        return '<a class="button" href="'.esc_url($url).'">Download for Windows</a><p>Version 0.1.3 · Windows x64 · Unsigned preview</p>';
+        return '<a class="button" href="'.esc_url($url).'">Download for Windows</a><p>Version '.esc_html(self::release_version()).' · Windows x64 · Preview</p>';
     }
     static function preview_download() {
         nocache_headers();
@@ -66,10 +66,10 @@ final class EC_Access {
         $token=self::setting('EC_GITHUB_TOKEN');
         $asset=self::setting('EC_GITHUB_ASSET_ID');
         $expected=self::setting('EC_INSTALLER_SHA256');
-        if (!$token || !ctype_digit((string)$asset) || !preg_match('/^[a-f0-9]{64}$/',$expected) || !defined('EC_INSTALLER_PATH') || !defined('EC_PRIVATE_DIR')) self::fail('Configure private server release settings first.',409);
+        if (!ctype_digit((string)$asset) || !preg_match('/^[a-f0-9]{64}$/',$expected) || !defined('EC_INSTALLER_PATH') || !defined('EC_PRIVATE_DIR')) self::fail('Configure private server release settings first.',409);
         $dir=realpath(EC_PRIVATE_DIR); $parent=realpath(dirname(EC_INSTALLER_PATH));
         $norm=function($p) { return strtolower(str_replace('\\','/',$p)); };
-        if (!$dir || !$parent || $norm($dir)!==$norm($parent) || basename(EC_INSTALLER_PATH)!=='EmailChronicle-Setup-0.1.3-x64.exe') self::fail('Invalid private installer destination.',409);
+        if (!$dir || !$parent || !self::release_version() || $norm($dir)!==$norm($parent) || basename(EC_INSTALLER_PATH)!=='EmailChronicle-Setup-'.self::release_version().'-x64.exe') self::fail('Invalid private installer destination.',409);
         foreach ([ABSPATH,WP_CONTENT_DIR,($_SERVER['DOCUMENT_ROOT'] ?? ABSPATH)] as $root) {
             $resolved=realpath($root);
             if ($resolved && strpos(rtrim($norm($dir),'/').'/',rtrim($norm($resolved),'/').'/')===0) self::fail('Installer storage must be outside public web roots.',409);
@@ -79,7 +79,9 @@ final class EC_Access {
         $ok=false;
         try {
             $api='https://api.github.com/repos/MaximDascalasu/emailchronicle/releases/assets/'.$asset;
-            $r=wp_remote_get($api,['headers'=>['Authorization'=>'Bearer '.$token,'Accept'=>'application/octet-stream'],'redirection'=>0,'timeout'=>60,'stream'=>true,'filename'=>$temp]);
+            $headers=['Accept'=>'application/octet-stream'];
+            if ($token) $headers['Authorization']='Bearer '.$token;
+            $r=wp_remote_get($api,['headers'=>$headers,'redirection'=>0,'timeout'=>60,'stream'=>true,'filename'=>$temp]);
             if (is_wp_error($r)) throw new RuntimeException('GitHub download failed.');
             $status=wp_remote_retrieve_response_code($r);
             if ($status===302) {
@@ -140,6 +142,7 @@ final class EC_Access {
     }
     static function request() {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') self::fail('POST required.',405);
+        if (wp_get_environment_type()!=='local' && !is_ssl()) self::fail('HTTPS required.',403);
         if (self::limited('ip:'.($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 8)) self::fail('Too many attempts. Please try again in an hour.',429);
         if (!wp_verify_nonce(self::value('_wpnonce'),'ec_request')) self::fail('Form expired. Reload and try again.',403);
         $stamp=self::value('started');
@@ -154,9 +157,13 @@ final class EC_Access {
         wp_safe_redirect(add_query_arg('ec_requested','1',home_url('/emailchronicle/')).'#early-access',303); exit;
     }
     static function installer() {
+        if ((string)self::setting('EC_RELEASE_ACCEPTED')!=='1') return false;
+        $expected=self::setting('EC_INSTALLER_SHA256');
+        if (!preg_match('/^[a-f0-9]{64}$/',$expected) || !self::release_version()) return false;
         if (!defined('EC_INSTALLER_PATH') || !defined('EC_PRIVATE_DIR')) return false;
         $file=realpath(EC_INSTALLER_PATH); $dir=realpath(EC_PRIVATE_DIR); $public=realpath(ABSPATH);
         if (!$file || !$dir || !$public || !is_file($file) || !is_readable($file)) return false;
+        if (basename($file)!=='EmailChronicle-Setup-'.self::release_version().'-x64.exe') return false;
         $norm=function($p) { return strtolower(str_replace('\\','/',$p)); };
         $f=$norm($file); $d=rtrim($norm($dir),'/').'/'; $p=rtrim($norm($public),'/').'/';
         if (strpos($f,$d)!==0 || !preg_match('/\.(exe|msi|zip)$/i',$file)) return false;
@@ -168,7 +175,13 @@ final class EC_Access {
             $boundary=rtrim($norm($resolved),'/').'/';
             if (strpos($d,$boundary)===0 || strpos($f,$boundary)===0) return false;
         }
+        // Every serving path honors acceptance, release version and approved bytes.
+        if (!hash_equals($expected,hash_file('sha256',$file))) return false;
         return $file;
+    }
+    static function release_version() {
+        $version=(string)(self::setting('EC_RELEASE_VERSION') ?: '0.1.4');
+        return preg_match('/^\d+\.\d+\.\d+$/D',$version) ? $version : '';
     }
     static function setting($key) { return getenv($key) ?: (defined($key) ? constant($key) : ''); }
     static function mail($to,$subject,$body,$id) {

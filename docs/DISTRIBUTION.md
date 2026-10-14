@@ -21,9 +21,8 @@ not establish copyright ownership or replace a software license.
 
 - No suitable signing certificate was present during the local review. A local self-signed test certificate was created; it is rejected by the release helper and provides no public trust. No cloud signing account
   has been provisioned. The published 0.1.0 installer remains unsigned.
-- The copyright owner must choose the license for EmailChronicle's own code and
-  confirm the publisher's legal name. No MIT or other open-source grant has been
-  applied without that choice.
+- EmailChronicle source now uses MIT, selected under the owner's delegated choice
+  on 14 October 2026. Publisher identity remains subject to certificate validation.
 - Confirm Microsoft runtime redistribution rights for the build toolchain
   before commercial distribution. Vendor-provided files and notices must retain
   their applicable terms; access to a wheel alone is not recorded proof of an

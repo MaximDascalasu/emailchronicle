@@ -23,3 +23,22 @@ The real local preview access code and WordPress/GitHub/SMTP configuration remai
 This is a focused public-exposure review, not a complete application vulnerability audit or a guarantee of zero risk. Binary installers and third-party source archives were not fully reverse-engineered. GitHub alerts and pattern checks can miss unsupported secret formats. Later changes and uploads require their own checks.
 
 The 0.1.3 installer remains unsigned; development-host Windows policy blocked its setup and clean-laptop acceptance remains pending. Public visibility does not resolve that issue or the pending application licence/runtime redistribution review. No Windows security controls were bypassed. The public repository grants visibility, not an automatically selected open-source licence.
+
+## Follow-up review and 0.1.4 preparation
+
+On 14 October 2026, fetched current branches/tags and checked 114 historical Git
+blobs. No matches were found for the checked GitHub/OpenAI/AWS credential formats,
+private-key headers, credential-bearing URLs or active local preview password.
+No checked sensitive configuration/database/key filenames appeared. GitHub again
+reported zero open secret alerts; secret scanning and push protection remain on.
+
+The current-source security review found no validated exploitable vulnerability.
+Its coverage was partial for historical supporting documents and excluded live
+hosting and dependency internals. Download-control correctness gaps were fixed:
+all website serving paths now require explicit acceptance, matching configured
+version and approved SHA-256. Source uses MIT under the owner's delegated choice.
+
+The first 0.1.4 candidate passed developer-host installation, normal launch/close,
+two bundled smoke runs and uninstall preservation, with security settings unchanged.
+This is not independent clean-machine acceptance or trusted publisher signing.
+No production Hostinger deployment has been verified in this follow-up.

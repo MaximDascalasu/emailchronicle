@@ -1,4 +1,4 @@
-EmailChronicle private Windows preview
+EmailChronicle Windows evaluation preview
 
 This preview is intended for authorised testing using synthetic evidence.
 Unless verified production signatures are supplied, the setup and application
@@ -7,7 +7,8 @@ Do not disable Windows or organisation security controls if execution is blocked
 
 Read the accompanying TEST-REPORT and signing-status.json for the actual checks
 completed. Packaging does not mean clean-machine installation has been verified.
-Application licensing, publisher identity and redistribution review remain pending.
+EmailChronicle source uses MIT. Trusted publisher signing and runtime
+redistribution review remain pending; bundled libraries retain their own terms.
 Do not redistribute this preview as a reviewed commercial or production release.
 
 The importer does not modify original evidence. Data is local and unencrypted.

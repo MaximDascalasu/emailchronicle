@@ -87,3 +87,20 @@ def test_search_context_survives_export(tmp_path):
         assert b'search_score' in z.read('xl/worksheets/sheet2.xml')
         assert b'remittance' in z.read('xl/worksheets/sheet2.xml')
     store.close()
+
+
+def test_repetitive_evidence_has_bounded_explanations_and_unicode_highlights():
+    from emailchronicle.search import MAX_MATCHES_PER_TERM, MAX_HIGHLIGHTS, highlight_ranges
+    body='😀 ' + 'payment ' * 200_000
+    result=search([row(1,body)],'payment')
+    assert len(result)==1
+    assert result[0]['body']==body
+    assert len(result[0]['search_matches'])==MAX_MATCHES_PER_TERM
+    assert result[0]['search_matches_limited']
+    spans=highlight_ranges(body,['payment'])
+    assert len(spans)==MAX_HIGHLIGHTS
+    assert spans[0]==(3,10)
+    assert highlight_ranges('😀 payment',['payment'])==[(3,10)]
+    assert highlight_ranges('nothing',['payment'])==[]
+    assert not search([row(1,body)],'payment missing')
+    assert search([row(1,body+'missing')],'payment missing')

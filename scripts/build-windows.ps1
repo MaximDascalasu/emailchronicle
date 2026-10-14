@@ -94,7 +94,7 @@ Copy-Item 'dist\EmailChronicle\bundle-inventory.json' (Join-Path $OutputDirector
 Copy-Item 'THIRD_PARTY_NOTICES.md' (Join-Path $OutputDirectory 'THIRD_PARTY_NOTICES.md')
 $signed = [bool]$CertificateThumbprint
 @{signed=$signed; publisher=$Publisher; version=$version; certificate_thumbprint=$CertificateThumbprint;
-  packaged_smoke_verified=$smokeVerified; clean_machine_verified=$false; distribution_status='private-preview-not-approved-for-public-release'} |
+  packaged_smoke_verified=$smokeVerified; clean_machine_verified=$false; distribution_status='preview-final-acceptance-pending'} |
     ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $OutputDirectory 'signing-status.json')
 Copy-Item -LiteralPath $report -Destination (Join-Path $OutputDirectory 'packaged-smoke-report.json')
 Get-ChildItem $OutputDirectory -File | Where-Object Name -NE 'SHA256SUMS.txt' | ForEach-Object {

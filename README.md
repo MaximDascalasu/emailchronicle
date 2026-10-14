@@ -6,31 +6,27 @@ An offline Windows desktop application for reconstructing email timelines from l
 
 ## Install without Python (Windows x64)
 
-**Current local private preview: 0.1.3.** Users need only the setup EXE. It installs
-Python/Qt/SQLite, notices, the matching source ZIP and a quick-start guide
-automatically. No extra downloads, developer tools, Office, mail client or test
-certificate are required for the application's core workflow. Source inspection
-uses an inert built-in EML/hex viewer. This preview remains unsigned; clean-machine
-acceptance and owner distribution decisions are still pending. See the local
-release notes and test report before providing it to testers.
+The current published preview is [0.1.3](https://github.com/MaximDascalasu/emailchronicle/releases/tag/v0.1.3).
+Version **0.1.4** is the next release candidate. It adds bounded search explanations
+and Unicode-correct highlighting, plus version-aware website delivery.
 
+Download the setup EXE from the explicitly selected release and compare its SHA-256
+with that release's `SHA256SUMS.txt`. Setup bundles Python, Qt, SQLite, the exact-version
+third-party source companion, notices and a quick-start guide. No developer tools,
+mail client or extra runtime downloads are required. Installation is per user;
+uninstall retains investigation data. Target: Windows 10/11 x64.
 
-**Distribution review:** 0.1.0 is an unsigned preview with incomplete third-party
-notices. Do not redistribute it as a reviewed commercial package. The 0.1.1
-development build corrects notice/source packaging and prepares trusted signing;
-it has not been published as a signed release. Publisher identity, an actual
-signing credential and the application's license choice are still needed. See
+The existing preview is unsigned. Clean-machine acceptance and a trusted signing
+identity are still pending. A website access code controls only the WordPress
+download endpoint; public GitHub downloads require no code.
+
+## Licence
+
+EmailChronicle's own source is available under the [MIT licence](LICENSE).
+Bundled components retain their own licences and notices. See
 [distribution status](docs/DISTRIBUTION.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
 
-Download `EmailChronicle-Setup-0.1.0-x64.exe` from [GitHub Releases](https://github.com/MaximDascalasu/emailchronicle/releases/latest), run it and follow the setup wizard. Python and Qt are bundled; the installed app works offline. Installation is per user and does not require administrator rights. Start EmailChronicle from the Start menu; setup also offers an optional desktop shortcut. Supported target: Windows 10/11 x64.
-
-This preview installer is unsigned, so Windows may display an unknown-publisher or SmartScreen warning. Verify that the download comes from this repository; code signing is a future distribution improvement. `SHA256SUMS.txt` on the release contains the installer checksum. Verify a download with `Get-FileHash .\EmailChronicle-Setup-0.1.0-x64.exe -Algorithm SHA256`.
-
-Updates use the same installation directory and app ID. Run the newer setup to replace the program. Uninstall through Windows Settings; investigations and evidence in `%LOCALAPPDATA%\EmailChronicle` are retained. Keep evidence storage separate from the program installation folder. This version does not auto-download updates.
-
 ## Build the installer
-
-On Windows x64 with Python 3.12 and [Inno Setup 6](https://jrsoftware.org/isdl.php) installed:
 
 ```powershell
 py -3.12 -m venv .venv
@@ -38,9 +34,11 @@ py -3.12 -m venv .venv
 powershell -NoProfile -File scripts\build-windows.ps1
 ```
 
-The build runs pytest, uses PyInstaller to bundle the app, runs an isolated executable smoke test (Qt, SQLite, EML parsing and source integrity), then compiles the setup EXE and checksum into `installer-output`. Use `-Iscc "C:\path\to\ISCC.exe"` for a custom compiler path. Third-party license files and synthetic samples are included in the app bundle.
-
-GitHub Actions builds unsigned review artifacts via **Actions → Build Windows installer → Run workflow**. The output includes a third-party source archive, license notices, file inventory, signing status and checksums. Tag builds now require a configured signing identity, verified signatures and successful installation tests before publishing. The tag must match `pyproject.toml`; do not push a new release tag before completing [distribution setup](docs/DISTRIBUTION.md).
+The build runs tests, collects pinned dependency sources/notices, bundles the app,
+checks the executable and compiles setup with checksums. Pass `-Iscc` for a custom
+Inno Setup compiler. Manual GitHub Actions builds produce review artifacts.
+Tag publication requires a matching package version, completed distribution review,
+trusted signing and installed-runtime checks. See [distribution setup](docs/DISTRIBUTION.md).
 
 ## Windows setup
 

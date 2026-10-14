@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QHBoxLayout
     QFrame, QHeaderView, QTabWidget, QCheckBox, QMenu, QDialog, QDialogButtonBox, QPlainTextEdit)
 
 from .store import Store
-from .search import search, plan, pattern
+from .search import search, plan, pattern, highlight_ranges, MAX_HIGHLIGHTS
 from .qt_lifecycle import dispose_windows
 
 
@@ -311,6 +311,7 @@ class Window(QMainWindow):
         inspect_layout.addWidget(title)
         self.message_title = QLabel("Select a message")
         self.message_title.setWordWrap(True)
+        self.message_title.setTextFormat(Qt.TextFormat.PlainText)
         self.message_title.setObjectName("messageTitle")
         inspect_layout.addWidget(self.message_title)
         self.match_info = QLabel()
@@ -628,16 +629,17 @@ class Window(QMainWindow):
             self.match_info.setText("Matched: " + '; '.join(explanations[:8]) if explanations else "")
             selections = []
             content = self.body_view.toPlainText()
-            for term in dict.fromkeys(m['matched'] for m in matches):
-                for hit in pattern(term).finditer(content):
-                    selection = QTextEdit.ExtraSelection()
-                    cursor = self.body_view.textCursor()
-                    # Qt cursor offsets count UTF-16 code units, unlike Python string indices.
-                    cursor.setPosition(len(content[:hit.start()].encode('utf-16-le')) // 2)
-                    cursor.setPosition(len(content[:hit.end()].encode('utf-16-le')) // 2, QTextCursor.MoveMode.KeepAnchor)
-                    selection.cursor = cursor
-                    selection.format.setBackground(QColor('#fff0a8'))
-                    selections.append(selection)
+            spans = highlight_ranges(content, (m['matched'] for m in matches))
+            for start, end in spans:
+                selection = QTextEdit.ExtraSelection()
+                cursor = self.body_view.textCursor()
+                cursor.setPosition(start)
+                cursor.setPosition(end, QTextCursor.MoveMode.KeepAnchor)
+                selection.cursor = cursor
+                selection.format.setBackground(QColor('#fff0a8'))
+                selections.append(selection)
+            if row.get('search_matches_limited') or len(spans) >= MAX_HIGHLIGHTS:
+                self.match_info.setText(self.match_info.text() + '\nDisplay highlights/explanations are limited; complete evidence is preserved.')
             self.body_view.setExtraSelections(selections)
             self.detail.setPlainText(
                 f"From: {row['sender'] or '[missing]'}\nTo: {row['recipients'] or '[missing]'}\n"
