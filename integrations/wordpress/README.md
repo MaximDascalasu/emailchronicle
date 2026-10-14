@@ -15,7 +15,7 @@ define('EC_PRIVATE_DIR', '/absolute/private/emailchronicle');
 define('EC_INSTALLER_PATH', EC_PRIVATE_DIR . '/EmailChronicle-Setup-0.1.3-x64.exe');
 define('EC_INSTALLER_SHA256', 'bd54bbf74b543903240f4a14da30db435fb2af722c2ca5296f209e30ab84f98d');
 // Fill the numeric release asset ID from the private GitHub release.
-define('EC_GITHUB_ASSET_ID', 'REPLACE_WITH_ASSET_ID');
+define('EC_GITHUB_ASSET_ID', '640260356');
 // Prefer EC_GITHUB_TOKEN environment variable: fine-grained token limited to
 // MaximDascalasu/emailchronicle, Contents: read, with an expiry.
 // Confirm only after laptop acceptance:
@@ -26,3 +26,6 @@ define('EC_GITHUB_ASSET_ID', 'REPLACE_WITH_ASSET_ID');
 7. Verify unauthenticated downloads return 403, correct code can download the exact approved hash, changing the code denies old cookies, and private storage has no public URL. Large-file transfer depends on Hostinger PHP timeout/storage limits; verify the complete 91 MB transfer on production.
 
 Leaving installer configuration absent keeps downloads disabled. The updated theme/plugin are deployment sources; pushing GitHub does not configure Hostinger or deploy WordPress automatically. Never put the installer in the theme or Media Library.
+
+Published private preview: https://github.com/MaximDascalasu/emailchronicle/releases/tag/v0.1.3
+Local administrator GitHub sync was exercised successfully against asset 640260356 and the downloaded private copy matched the configured SHA-256. Persistent local downloads remain disabled. Hostinger transfer is not yet verified.
