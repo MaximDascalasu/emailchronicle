@@ -10,7 +10,7 @@ get_header();
       <h1>The conversation.<br><span>Back in order.</span></h1>
       <p class="ec-lead">Turn scattered email evidence into a chronological investigation. Search locally, inspect every source and share clear reports.</p>
       <ul class="ec-tags" aria-label="Application requirements"><li>Target: Windows 10/11 x64</li><li>Runs locally</li><li>Single bundled installer</li></ul>
-      <div class="ec-actions"><a class="button" href="#early-access">Get access</a><a class="text-link" href="#how-it-works">See how it works →</a></div>
+      <div class="ec-actions"><a class="button" href="<?php echo (class_exists('EC_Access') && EC_Access::preview_allowed(get_queried_object())) ? '#early-access' : '#ec-code'; ?>">Enter access code</a><a class="button" href="#ec-request">Request access</a><a class="text-link" href="#how-it-works">See how it works →</a></div>
       <p class="ec-small">This website distributes software. Your investigation emails stay in your desktop workspace.</p>
     </div>
     <div class="ec-console" aria-label="Illustrative desktop workflow">
