@@ -43,7 +43,7 @@ final class EC_Access {
                 : '<p>Code access is being configured.</p>';
             return '<div class="ec-access-options"><section aria-labelledby="ec-code"><h3 id="ec-code">Have an access code?</h3><p>Enter the code Maxim shared with you.</p>'.$code.'</section><section aria-labelledby="ec-request"><h3 id="ec-request">Request access</h3><p>No code yet? Send a request. Maxim can email you the code after reviewing it.</p>'.self::form().'</section></div>';
         }
-        if (!self::installer()) return '<p role="status"><strong>Download coming soon.</strong> The installer is awaiting testing on another laptop.</p>';
+        if (!self::installer()) return '<p role="status"><strong>Download coming soon.</strong> The administrator must complete private installer setup and preview acceptance.</p>';
         $url=add_query_arg('action','ec_preview_download',admin_url('admin-post.php'));
         return '<a class="button" href="'.esc_url($url).'">Download for Windows</a><p>Version '.esc_html(self::release_version()).' · Windows x64 · Preview</p>';
     }
@@ -283,7 +283,7 @@ final class EC_Access {
                 $m->setFrom(self::setting('EC_SMTP_FROM') ?: 'preview@example.test','EmailChronicle');
                 $m->addAddress($to); $m->Subject=$subject; $m->Body=$body; $m->CharSet='UTF-8'; $ok=$m->send();
             } catch (\Exception $e) { $ok=false; }
-        } elseif (!defined('EC_MAIL_READY') || !EC_MAIL_READY) { update_post_meta($id,'mail_status','Not configured'); return false; }
+        } elseif ((string)self::setting('EC_MAIL_READY')!=='1') { update_post_meta($id,'mail_status','Not configured'); return false; }
         else { $ok=wp_mail($to,$subject,$body); }
         update_post_meta($id,'mail_status',$ok ? 'Accepted by mail transport; delivery unconfirmed' : 'Failed');
         return $ok;
@@ -330,9 +330,11 @@ final class EC_Access {
     static function admin() {
         if (!current_user_can('manage_options')) return;
         self::setup_screen();
+        if (self::setting('EC_GITHUB_ASSET_ID')) {
         echo '<div class="wrap"><h2>GitHub installer storage</h2><p>Administrator-only sync downloads the private GitHub asset to private server storage and checks its configured SHA-256. Visitors never receive the GitHub credential. Enable only after installer acceptance.</p><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
         wp_nonce_field('ec_sync_release');
         echo '<input type="hidden" name="action" value="ec_sync_release"><button class="button" type="submit">Sync verified installer from GitHub</button></form></div>';
+        }
         echo '<div class="wrap"><h1>EmailChronicle access</h1><p>Review requests below, then manually email the shared page access code to applicants you accept. Set or rotate that code under Pages → EmailChronicle → Visibility → Password protected. Friends with the code can download without requesting access. Changing the shared code revokes previous password cookies. Delete removes request data.</p><p>Installer: '.(self::installer() ? 'Private file configured' : 'Unavailable — configure EC_PRIVATE_DIR and EC_INSTALLER_PATH outside the web root').'</p><table class="widefat"><thead><tr><th>Applicant</th><th>Intended use</th><th>Access / email</th><th>Decision</th></tr></thead><tbody>';
         foreach (get_posts(['post_type'=>'ec_request','post_status'=>'private','numberposts'=>100,'orderby'=>'date']) as $p) {
             $id=$p->ID; $g=get_post_meta($id,'grant',true); $state=get_post_meta($id,'state',true);
