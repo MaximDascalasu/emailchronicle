@@ -1,6 +1,11 @@
 name: Build Windows installer
 on:
   workflow_dispatch:
+    inputs:
+      publish_preview:
+        description: 'Publish the tested unsigned evaluation preview (never a final signed release)'
+        type: boolean
+        default: false
   push:
     branches: ['main']
     tags: ['v*']
@@ -69,3 +74,24 @@ jobs:
           if (-not $status.signed) { throw 'Unsigned releases are blocked' }
           $assets = (Get-ChildItem installer-output -File).FullName
           gh release create $env:GITHUB_REF_NAME @assets --verify-tag --title "EmailChronicle $version" --notes "Windows x64 installer. Signed and timestamped Windows binaries; Python is bundled. EML-only preview. Download the installer together with ThirdPartySources ZIP and notices. Evidence is retained when uninstalling. SHA256SUMS.txt contains download checksums."
+      - name: Publish explicitly requested evaluation preview
+        if: github.event_name == 'workflow_dispatch' && inputs.publish_preview
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = & .\.venv\Scripts\python.exe -c "import importlib.metadata; print(importlib.metadata.version('emailchronicle'))"
+          $notes = "docs/RELEASE-NOTES-$version.md"
+          if (-not (Test-Path -LiteralPath $notes)) { throw 'Version-specific preview notes missing' }
+          $smoke = Get-Content installer-output/packaged-smoke-report.json -Raw | ConvertFrom-Json
+          if ($smoke.status -ne 'ok') { throw 'Verified packaged smoke report required' }
+          $distribution = Get-Content packaging/distribution-status.json -Raw | ConvertFrom-Json
+          if ($distribution.application_license -eq 'pending-owner-decision') { throw 'Application licence selection required' }
+          Compress-Archive -Path integrations/wordpress/plugins/emailchronicle-access -DestinationPath installer-output/emailchronicle-access.zip
+          Copy-Item -LiteralPath $notes -Destination installer-output/RELEASE-NOTES.md
+          Get-ChildItem installer-output -File | Where-Object Name -NE 'SHA256SUMS.txt' | ForEach-Object {
+            "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"
+          } | Set-Content -Encoding ascii installer-output/SHA256SUMS.txt
+          $assets = (Get-ChildItem installer-output -File).FullName
+          gh release create "v$version" @assets --target $env:GITHUB_SHA --prerelease --latest=false --title "EmailChronicle $version — evaluation preview" --notes-file $notes
+          if ($LASTEXITCODE -ne 0) { throw 'Preview publication failed' }
