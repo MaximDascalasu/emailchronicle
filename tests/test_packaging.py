@@ -60,7 +60,7 @@ def test_inventory_rejects_gpl_plugin_on_disk(tmp_path):
 def test_signed_release_without_identity_is_blocked():
     env = os.environ.copy()
     env.pop("EMAILCHRONICLE_SIGNING_THUMBPRINT", None)
-    command = ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File",
+    command = ["powershell", "-NoProfile", "-File",
                str(compliance.ROOT / "scripts/build-windows.ps1"), "-RequireSigning"]
     result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=20)
     assert result.returncode != 0

@@ -9,10 +9,12 @@ the project owner's instruction.
 The installer places complete collected notices in
 `_internal/third-party-notices`. The **Third-party licenses** menu item opens
 this directory. The matching `EmailChronicle-ThirdPartySources-VERSION.zip`
-companion must accompany every binary distribution, with the same recipient
-access as the installer. It contains the exact upstream QtBase and
-PySide/Shiboken 6.12.0 source archives, checksums, licenses and attribution files.
-Do not distribute a binary alone. Source downloads happen during development
+companion is included automatically by the single setup EXE, installed as
+`_internal/third-party-notices/ThirdPartySources.zip`. Users do not need a
+separate download, Python installation or developer tools. The build also emits
+an optional standalone copy for publisher records. The included ZIP contains
+exact upstream QtBase and PySide/Shiboken sources, checksums and notices. Do not
+remove it from binary distributions. Source downloads happen during development
 and builds; the installed app does not download sources or contact a service.
 
 | Component | Applicable route / purpose | Upstream |

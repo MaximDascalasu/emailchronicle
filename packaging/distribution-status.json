@@ -1,7 +1,11 @@
 {
   "application_license": "pending-owner-decision",
-  "publisher": null,
+  "publisher": "Maxim Dascalasu",
+  "publisher_type": "individual",
+  "publisher_country": "GB",
+  "publisher_identity_status": "owner-confirmed; not certificate-authority-validated",
+  "intended_distribution": "private evaluation by a few invited friends",
   "runtime_redistribution_review": "pending",
   "reviewed_by": null,
-  "note": "No commercial licenses or signing credentials have been purchased. Complete the owner decisions and runtime redistribution review before enabling a signed release."
+  "note": "Owner confirmed individual publisher Maxim Dascalasu, United Kingdom, on 14 October 2026. Intended audience is a few close friends, not a public rollout. Formal application terms and runtime redistribution review remain pending. Existing 0.1.3 binary is unchanged. No production signing credential or commercial license has been purchased."
 }

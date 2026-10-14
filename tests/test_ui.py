@@ -35,6 +35,31 @@ def test_csv_formula_escaping():
     assert safe_cell("normal") == "normal"
 
 
+def test_source_viewer_needs_no_external_mail_application(tmp_path, monkeypatch):
+    from emailchronicle import app as module
+    store = Store(tmp_path / 'data')
+    case = store.create_investigation('Built-in source')
+    source = SAMPLES / '01-initial.eml'
+    before = source.read_bytes()
+    store.import_eml(case, source)
+    window = Window(store)
+    opened = []
+    monkeypatch.setattr(module.QDesktopServices, 'openUrl', lambda url: opened.append(url) or False)
+    window.open_source()
+    assert not opened
+    assert window.source_dialog.raw_text.isReadOnly()
+    assert 'Subject:' in window.source_dialog.raw_text.toPlainText()
+    assert '00000000' in window.source_dialog.hex_text.toPlainText()
+    assert source.read_bytes() == before
+    warnings = []
+    monkeypatch.setattr(module.QMessageBox, 'warning', lambda *args: warnings.append(args[-1]))
+    module.Path(window.rows[0]['stored_path']).write_bytes(b'tampered synthetic copy')
+    window.open_source()
+    assert warnings and 'hash mismatch' in warnings[0]
+    window.close()
+    store.close()
+
+
 def test_report_export_action(tmp_path, monkeypatch):
     from emailchronicle import app as module
     from PySide6.QtWidgets import QMessageBox
@@ -128,7 +153,7 @@ def test_import_export_and_source_ui(tmp_path, monkeypatch):
     opened = []
     monkeypatch.setattr(module.QDesktopServices, "openUrl", lambda url: opened.append(url.toLocalFile()) or True)
     window.table.selectRow(0)
-    window.open_source()
+    window.open_source(external=True)
     assert opened[0].replace("\\", "/") == window.rows[0]["stored_path"].replace("\\", "/")
     warnings = []
     monkeypatch.setattr(module.QMessageBox, "warning", lambda *args: warnings.append(args[-1]))

@@ -4,6 +4,15 @@ An offline Windows desktop application for reconstructing email timelines from l
 
 ## Install without Python (Windows x64)
 
+**Current local private preview: 0.1.3.** Users need only the setup EXE. It installs
+Python/Qt/SQLite, notices, the matching source ZIP and a quick-start guide
+automatically. No extra downloads, developer tools, Office, mail client or test
+certificate are required for the application's core workflow. Source inspection
+uses an inert built-in EML/hex viewer. This preview remains unsigned; clean-machine
+acceptance and owner distribution decisions are still pending. See the local
+release notes and test report before providing it to testers.
+
+
 **Distribution review:** 0.1.0 is an unsigned preview with incomplete third-party
 notices. Do not redistribute it as a reviewed commercial package. The 0.1.1
 development build corrects notice/source packaging and prepares trusted signing;
@@ -24,7 +33,7 @@ On Windows x64 with Python 3.12 and [Inno Setup 6](https://jrsoftware.org/isdl.p
 ```powershell
 py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -e ".[test,build]"
-powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
+powershell -NoProfile -File scripts\build-windows.ps1
 ```
 
 The build runs pytest, uses PyInstaller to bundle the app, runs an isolated executable smoke test (Qt, SQLite, EML parsing and source integrity), then compiles the setup EXE and checksum into `installer-output`. Use `-Iscc "C:\path\to\ISCC.exe"` for a custom compiler path. Third-party license files and synthetic samples are included in the app bundle.
@@ -64,7 +73,7 @@ The default storage directory is `%LOCALAPPDATA%\EmailChronicle`. Choose a local
 3. The initial message, its second export and quoted copy are marked as likely duplicates. All occurrences retain their own provenance.
 4. The undated note and unknown-timezone message appear last with review flags. Their times are not guessed.
 5. Import the same file again to see exact-file deduplication. Create a second investigation to see separate evidence collections.
-6. Select a row to inspect its cleaned text, original date text, parsing origin, source paths, locator and SHA-256. **Open source copy** verifies the hash and opens the preserved EML using the Windows file association.
+6. Select a row to inspect its cleaned text, original date text, parsing origin, source paths, locator and SHA-256. **Open source copy** verifies the hash and opens the preserved EML using the built-in read-only source viewer.
 7. Search subject/content, filter sender, or enter ISO dates to filter UTC calendar days. Undated messages remain visible for review. Export CSV exports the currently visible rows with provenance and flags.
 8. In the 0.1.1 development build, use **Help → How to use EmailChronicle** for an in-app explanation and **Help → Third-party licenses** to inspect the bundled notices.
 
@@ -99,7 +108,7 @@ The timeline converts known dates to UTC and sorts oldest first. Unknown times
 remain undated and flagged. Exact file copies are skipped; likely duplicate
 messages are marked for review rather than merged. Selecting a row shows its
 content and provenance. Opening its source verifies the preserved file's hash
-before asking the Windows EML viewer to open it. CSV export includes the visible
+before displaying it in the built-in read-only EML/hex viewer. CSV export includes the visible
 rows, review flags and source hash. Everything lives in the chosen local data
 directory; there are no cloud or AI calls from the installed app.
 
@@ -138,7 +147,7 @@ limits cause an explicit failure rather than silent evidence truncation.
 
 ## Evidence model and limits
 
-Original input files are read only and never modified by the importer. Each imported file receives a separate managed byte-for-byte copy, SHA-256 hash, original path and import time. Opening a source uses the preserved copy, so the source remains available if the input is moved. The external viewer can potentially modify that copy; subsequent opening checks detect hash changes. Back up the entire data directory together; stored copy paths are absolute in this release.
+Original input files are read only and never modified by the importer. Each imported file receives a separate managed byte-for-byte copy, SHA-256 hash, original path and import time. Opening a source uses the preserved copy, so the source remains available if the input is moved. The built-in viewer is read only; subsequent opening checks detect external changes to preserved copies. Back up the entire data directory together; stored copy paths are absolute in this release.
 
 `investigations` groups separate collections; `sources` records original evidence; `messages` stores original metadata or quoted-text assertions with source IDs and body-line locators; `audit` records creation, imports, skipped duplicate files, UI import failures, source opening attempts, integrity failures and CSV exports. SQLite foreign keys and transactions enforce relationships. The audit trail is basic and locally editable, not a tamper-proof chain of custody. Database encryption, access control and cryptographic audit signing are outside this slice.
 

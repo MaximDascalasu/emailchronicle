@@ -4,8 +4,8 @@ import sys
 
 root = Path(SPECPATH).parent
 sys.path.insert(0, str(root / 'packaging'))
-from compliance import permitted_binary
-notices = root / 'build' / 'compliance' / 'third-party-notices'
+from compliance import permitted_binary, NOTICE_DIRECTORY
+notices = root / 'build' / 'compliance' / NOTICE_DIRECTORY
 if not (notices / 'source-index.json').exists():
     raise RuntimeError('Run packaging/compliance.py before bundling')
 datas = [(str(root / 'README.md'), '.'), (str(root / 'samples'), 'samples'),

@@ -1,0 +1,16 @@
+EmailChronicle private Windows preview
+
+This preview is intended for authorised testing using synthetic evidence.
+Unless verified production signatures are supplied, the setup and application
+are UNSIGNED. A local test certificate does not establish a trusted publisher.
+Do not disable Windows or organisation security controls if execution is blocked.
+
+Read the accompanying TEST-REPORT and signing-status.json for the actual checks
+completed. Packaging does not mean clean-machine installation has been verified.
+Application licensing, publisher identity and redistribution review remain pending.
+Do not redistribute this preview as a reviewed commercial or production release.
+
+The importer does not modify original evidence. Data is local and unencrypted.
+Quoted headers and uncertain dates require review. The basic audit trail is not
+tamper-proof. Reports do not certify conclusions. Third-party notices are available
+from Help and the Start menu shortcut; corresponding sources accompany the release.

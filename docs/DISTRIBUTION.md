@@ -19,8 +19,7 @@ not establish copyright ownership or replace a software license.
 
 ## What remains unresolved
 
-- No suitable signing certificate was present during the local review. No
-  certificate has been purchased, created or imported. No cloud signing account
+- No suitable signing certificate was present during the local review. A local self-signed test certificate was created; it is rejected by the release helper and provides no public trust. No cloud signing account
   has been provisioned. The published 0.1.0 installer remains unsigned.
 - The copyright owner must choose the license for EmailChronicle's own code and
   confirm the publisher's legal name. No MIT or other open-source grant has been
@@ -43,7 +42,7 @@ of compliance in every jurisdiction.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[test,build]"
-powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1
+powershell -NoProfile -File scripts\build-windows.ps1
 ```
 
 Preview builds are explicitly recorded as unsigned in `signing-status.json`.
@@ -60,7 +59,7 @@ the signing provider may prompt for its PIN. Never put a private key or password
 in Git, chat, build arguments or logs.
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\build-windows.ps1 `
+powershell -NoProfile -File scripts\build-windows.ps1 `
   -RequireSigning `
   -CertificateThumbprint YOUR_PUBLIC_CERTIFICATE_THUMBPRINT `
   -Publisher "EXACT CERTIFICATE PUBLISHER NAME"

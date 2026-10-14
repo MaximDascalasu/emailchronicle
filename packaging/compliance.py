@@ -20,6 +20,7 @@ SOURCES = (
 QT_DLLS = {"qt6core.dll", "qt6gui.dll", "qt6widgets.dll"}
 QT_PLUGINS = {"platforms/qwindows.dll", "platforms/qoffscreen.dll", "platforms/qminimal.dll",
               "styles/qmodernwindowsstyle.dll"}
+NOTICE_DIRECTORY = "third-party-notices-v2"
 
 
 def permitted_binary(name):
@@ -120,6 +121,23 @@ def prepare():
     required = [p.name.lower() for p in notices.rglob("*") if p.is_file()]
     if not any("lgpl" in name for name in required) or not any("gpl-3" in name or "gpl3" in name for name in required):
         raise ValueError("Full LGPLv3 and GPLv3 license texts missing")
+    # Inno Setup 6 cannot install arbitrarily long upstream source-tree paths.
+    # Preserve all bytes but use short, collision-resistant installed names.
+    compact = folder / NOTICE_DIRECTORY
+    compact.mkdir(exist_ok=True)
+    origins = []
+    for original in sorted(notices.rglob('*')):
+        if not original.is_file():
+            continue
+        relative = original.relative_to(notices)
+        if len(relative.parts) == 1:
+            target = compact / original.name
+        else:
+            target = compact / relative.parts[0] / (hashlib.sha256(relative.as_posix().encode()).hexdigest()[:12] + '-' + original.name[:40])
+        target.parent.mkdir(exist_ok=True)
+        shutil.copy2(original, target)
+        origins.append({'installed_path': target.relative_to(compact).as_posix(), 'upstream_notice_path': relative.as_posix(), 'sha256': digest(original)})
+    (compact / 'notice-origins.json').write_text(json.dumps(origins, indent=2), encoding='utf-8')
     return folder
 
 
@@ -138,18 +156,18 @@ def inventory(bundle):
     (bundle / "bundle-inventory.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
 
 
-def source_companion():
+def source_companion(output=None):
     import sqlite3
     folder = ROOT / "build" / "compliance"
-    output = ROOT / "installer-output"
-    output.mkdir(exist_ok=True)
+    output = Path(output) if output else ROOT / "installer-output"
+    output.mkdir(parents=True, exist_ok=True)
     version = importlib.metadata.version("emailchronicle")
     with zipfile.ZipFile(output / f"EmailChronicle-ThirdPartySources-{version}.zip", "w", zipfile.ZIP_STORED) as archive:
         for source in sorted((folder / "sources").glob("*.tar.xz")):
             archive.write(source, "sources/" + source.name)
-        for notice in sorted((folder / "third-party-notices").rglob("*")):
+        for notice in sorted((folder / NOTICE_DIRECTORY).rglob("*")):
             if notice.is_file():
-                archive.write(notice, "notices/" + notice.relative_to(folder / "third-party-notices").as_posix())
+                archive.write(notice, "notices/" + notice.relative_to(folder / NOTICE_DIRECTORY).as_posix())
         archive.write(ROOT / "THIRD_PARTY_NOTICES.md", "THIRD_PARTY_NOTICES.md")
         archive.writestr("runtime-versions.json", json.dumps({"python": sys.version.split()[0],
                          "openssl": ssl.OPENSSL_VERSION, "sqlite": sqlite3.sqlite_version}, indent=2))
@@ -158,7 +176,7 @@ def source_companion():
 if __name__ == "__main__":
     if len(sys.argv) == 3 and sys.argv[1] == "--inventory":
         inventory(sys.argv[2])
-    elif len(sys.argv) == 2 and sys.argv[1] == "--source-companion":
-        source_companion()
+    elif len(sys.argv) in (2, 3) and sys.argv[1] == "--source-companion":
+        source_companion(sys.argv[2] if len(sys.argv) == 3 else None)
     else:
         print(prepare())

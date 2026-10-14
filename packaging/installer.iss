@@ -4,10 +4,17 @@
 #ifndef AppPublisher
   #define AppPublisher "EmailChronicle"
 #endif
+#ifndef SourceCompanion
+  #error SourceCompanion must point to the verified source companion ZIP
+#endif
 
 [Setup]
 AppId={{AA579A1A-4BBD-41A2-B704-5B8F5DEBE19B}
+#ifdef SignRelease
 AppName=EmailChronicle
+#else
+AppName=EmailChronicle (Unsigned Preview)
+#endif
 AppVersion={#AppVersion}
 AppPublisher={#AppPublisher}
 AppPublisherURL=https://github.com/MaximDascalasu/emailchronicle
@@ -18,6 +25,8 @@ ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0.17763
 DisableProgramGroupPage=yes
+DisableDirPage=yes
+DisableReadyPage=yes
 OutputDir=..\installer-output
 OutputBaseFilename=EmailChronicle-Setup-{#AppVersion}-x64
 Compression=lzma2
@@ -26,7 +35,7 @@ WizardStyle=modern
 UninstallDisplayIcon={app}\EmailChronicle.exe
 CloseApplications=yes
 SetupLogging=yes
-InfoBeforeFile=..\THIRD_PARTY_NOTICES.md
+InfoBeforeFile=PREVIEW-NOTICE.txt
 #ifdef SignRelease
 SignTool=chronicle
 SignedUninstaller=yes
@@ -37,6 +46,8 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 
 [Files]
 Source: "..\dist\EmailChronicle\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SourceCompanion}"; DestDir: "{app}\_internal\third-party-notices"; DestName: "ThirdPartySources.zip"; Flags: ignoreversion
+Source: "QUICK-START.txt"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{autoprograms}\EmailChronicle"; Filename: "{app}\EmailChronicle.exe"

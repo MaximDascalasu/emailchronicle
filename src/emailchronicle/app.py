@@ -3,19 +3,59 @@ import argparse
 import csv
 from datetime import date
 import json
+import hashlib
 import os
 from pathlib import Path
 import sys
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import Qt, QUrl, QTimer
 from PySide6.QtGui import QDesktopServices, QColor, QAction, QKeySequence, QTextCursor
 from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QHBoxLayout,
     QInputDialog, QLabel, QLineEdit, QMainWindow, QMessageBox, QPushButton,
     QSplitter, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
-    QFrame, QHeaderView, QTabWidget, QCheckBox, QMenu, QDialog, QDialogButtonBox)
+    QFrame, QHeaderView, QTabWidget, QCheckBox, QMenu, QDialog, QDialogButtonBox, QPlainTextEdit)
 
 from .store import Store
 from .search import search, plan, pattern
+from .qt_lifecycle import dispose_windows
+
+
+class SourceViewer(QDialog):
+    """Read-only, inert evidence display; never executes HTML or attachments."""
+    def __init__(self, data, name, sha256, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        self.setWindowTitle('Original EML source · read only')
+        self.resize(900, 650)
+        layout = QVBoxLayout(self)
+        identity = QLabel(f'{name}\nSHA-256: {sha256}\n{len(data):,} bytes · integrity checked before display')
+        identity.setTextFormat(Qt.TextFormat.PlainText)
+        identity.setWordWrap(True)
+        identity.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        layout.addWidget(identity)
+        tabs = QTabWidget()
+        self.raw_text = QPlainTextEdit()
+        self.raw_text.setReadOnly(True)
+        self.raw_text.setAccessibleName('Raw EML text, read only')
+        self.raw_text.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        self.raw_text.setPlainText(data[:2*1024*1024].decode('utf-8', errors='replace'))
+        tabs.addTab(self.raw_text, 'Raw EML text')
+        self.hex_text = QPlainTextEdit()
+        self.hex_text.setReadOnly(True)
+        self.hex_text.setAccessibleName('Original byte hex preview')
+        self.hex_text.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+        self.hex_text.setPlainText('\n'.join(f'{offset:08x}  '+data[offset:offset+16].hex(' ')
+            for offset in range(0, min(len(data), 65536), 16)))
+        tabs.addTab(self.hex_text, 'Original bytes · hex')
+        layout.addWidget(tabs)
+        note = QLabel('Text is a UTF-8 display with replacement characters for undecodable bytes; hex shows exact bytes.\n'
+            'Display limits: first 2 MiB of text and first 64 KiB of hex. The preserved file stays complete.\n'
+            'HTML, links and attachments are not executed. No external mail application is needed.')
+        note.setWordWrap(True)
+        layout.addWidget(note)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.rejected.connect(self.close)
+        layout.addWidget(buttons)
 
 
 
@@ -607,13 +647,20 @@ class Window(QMainWindow):
                 f"Submitted source: {row['original_path']}\nPreserved copy: {row['stored_path']}\n"
                 f"SHA-256: {row['sha256']}\n\n{row['body']}")
 
-    def open_source(self):
+    def open_source(self, checked=False, *, external=False):
         row = self.selected()
         if row:
             try:
                 path = self.store.verified_source(row["id"])
-                if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
-                    raise OSError("Windows could not open the EML; configure an EML viewer.")
+                if external:
+                    if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+                        raise OSError('No external EML viewer is configured. Use the built-in source viewer instead.')
+                else:
+                    data = path.read_bytes()
+                    if hashlib.sha256(data).hexdigest() != row['sha256']:
+                        raise ValueError('Evidence copy changed while opening; display blocked.')
+                    self.source_dialog = SourceViewer(data, Path(row['original_path']).name, row['sha256'], self)
+                    self.source_dialog.show()
             except (OSError, ValueError) as exc:
                 QMessageBox.warning(self, "Open source", str(exc))
 
@@ -682,14 +729,20 @@ def safe_cell(value):
 def main():
     parser = argparse.ArgumentParser(description="Offline email evidence timeline")
     parser.add_argument("--data-dir", type=Path, default=Path(os.environ.get("LOCALAPPDATA", Path.home())) / "EmailChronicle")
+    parser.add_argument("--test-close-after-ms", type=int, default=None, help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.test_close_after_ms is not None and not 100 <= args.test_close_after_ms <= 60000:
+        parser.error('Test close delay must be between 100 and 60000 milliseconds')
     app = QApplication(sys.argv[:1])
     store = Store(args.data_dir)
     window = Window(store)
     window.show()
+    if args.test_close_after_ms is not None:
+        QTimer.singleShot(args.test_close_after_ms, window.close)
     try:
         return app.exec()
     finally:
+        dispose_windows()
         store.close()
 
 

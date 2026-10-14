@@ -4,6 +4,7 @@ from pathlib import Path
 import sys
 import traceback
 from tempfile import TemporaryDirectory
+from emailchronicle.qt_lifecycle import dispose_windows
 
 def smoke_test(report):
     from PySide6.QtWidgets import QApplication
@@ -11,6 +12,8 @@ def smoke_test(report):
     from emailchronicle.store import Store
 
     if getattr(sys, "frozen", False):
+        import emailchronicle.app as app_module
+        assert Path(app_module.__file__).resolve().is_relative_to(Path(sys._MEIPASS).resolve()), 'App loaded from outside bundled runtime'
         notices = Path(sys._MEIPASS) / "third-party-notices"
         assert (notices / "source-index.json").is_file(), "License source index missing"
         assert any("lgpl" in p.name.lower() for p in notices.rglob("*")), "LGPL license text missing"
@@ -43,10 +46,39 @@ def smoke_test(report):
             results = search(store.timeline(investigation), 'material', 'expanded', groups)
             assert len(results) == 1 and results[0]['search_matches'][0]['reason'] == 'synonym'
             assert store.search_dictionary(investigation)['version'] == 1
+            window.keyword.setText('material')
+            window.search_mode.setCurrentIndex(1)
+            assert len(window.rows) == 1
+            assert window.body_view.extraSelections()
+            window.open_source()
+            assert 'Synthetic content.' in window.source_dialog.raw_text.toPlainText()
+            assert window.source_dialog.raw_text.isReadOnly()
+            # Exercise the real UI CSV callback with a synthetic destination,
+            # without opening an interactive file dialog during acceptance tests.
+            from PySide6.QtWidgets import QFileDialog
+            import csv
+            original_save_dialog = QFileDialog.getSaveFileName
+            csv_path = folder / 'synthetic-timeline.csv'
+            try:
+                QFileDialog.getSaveFileName = lambda *args: (str(csv_path), 'CSV (*.csv)')
+                window.export_csv()
+            finally:
+                QFileDialog.getSaveFileName = original_save_dialog
+            with csv_path.open(encoding='utf-8-sig', newline='') as stream:
+                exported = list(csv.DictReader(stream))
+            assert len(exported) == 1 and exported[0]['sha256'] == row['sha256']
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(50, app.quit)
+            assert app.exec() == 0
             window.close()
+            dispose_windows()
             Path(report).write_text(json.dumps({"status": "ok", "qt": True, "sqlite": True,
-                                               "eml": True, "hash_verification": True}), encoding="utf-8")
+                "eml": True, "hash_verification": True, "expanded_search": True,
+                "pdf_excel_graph_exports": True, "csv_ui_export": True, "event_loop_exit": True,
+                "native_window_disposal": True, "built_in_source_viewer": True,
+                "bundled_runtime": bool(getattr(sys, 'frozen', False))}), encoding="utf-8")
         finally:
+            dispose_windows()
             store.close()
 
 
