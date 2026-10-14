@@ -6,8 +6,8 @@ An offline Windows desktop application for reconstructing email timelines from l
 
 ## Install without Python (Windows x64)
 
-The current published preview is [0.1.3](https://github.com/MaximDascalasu/emailchronicle/releases/tag/v0.1.3).
-Version **0.1.4** is the next release candidate. It adds bounded search explanations
+The current published preview is [0.1.4](https://github.com/MaximDascalasu/emailchronicle/releases/tag/v0.1.4).
+It adds bounded search explanations
 and Unicode-correct highlighting, plus version-aware website delivery.
 
 Download the setup EXE from the explicitly selected release and compare its SHA-256

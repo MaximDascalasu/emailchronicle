@@ -34,7 +34,8 @@ performed. Pattern checks and static review do not guarantee absence of every ri
   PDF/Excel/graph and CSV export, source viewer, event-loop exit and native disposal.
 - Developer-host install, normal launch/shutdown, two installed-runtime smoke runs,
   bundled-source verification and uninstall preserving workspace data passed for
-  the first candidate. Final candidate is retested after packaging.
+  both local candidates. The GitHub Windows runner also passed installation,
+  installed-runtime smoke tests and uninstall preservation before publication.
 - Standalone plugin tests cover missing acceptance/hash, changed bytes, wrong or
   invalid versions and acceptance withdrawal. Local WordPress tests cover code
   validation, cookie rotation, expiring grants and request/download presentation.
