@@ -1,5 +1,7 @@
 # EmailChronicle
 
+> **Public preview downloads:** This repository and its GitHub release assets are public. Anyone can download the installer directly, without a website access code. The installer is unsigned and clean-laptop acceptance is pending. See [privacy review](docs/PUBLIC-REPOSITORY-PRIVACY.md) for exposure checks and their limits.
+
 An offline Windows desktop application for reconstructing email timelines from local evidence. This first working slice supports **EML only**. It uses Python 3.12+, PySide6 and SQLite, with no cloud services, external AI calls or telemetry.
 
 ## Install without Python (Windows x64)
