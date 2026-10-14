@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       publish_preview:
-        description: 'Publish the tested unsigned evaluation preview (never a final signed release)'
+        description: 'Prepare a private draft of the tested evaluation installer'
         type: boolean
         default: false
   push:
@@ -59,6 +59,7 @@ jobs:
           if ($uninstall.ExitCode -ne 0) { throw "Uninstallation failed" }
           if (-not (Test-Path $sentinel)) { throw "Uninstall removed investigation data" }
       - uses: actions/upload-artifact@v4
+        if: github.event.repository.private
         with:
           name: EmailChronicle-Windows-installer
           path: installer-output/*
@@ -73,7 +74,7 @@ jobs:
           $status = Get-Content installer-output/signing-status.json -Raw | ConvertFrom-Json
           if (-not $status.signed) { throw 'Unsigned releases are blocked' }
           $assets = (Get-ChildItem installer-output -File).FullName
-          gh release create $env:GITHUB_REF_NAME @assets --verify-tag --title "EmailChronicle $version" --notes "Windows x64 installer. Signed and timestamped Windows binaries; Python is bundled. EML-only preview. Download the installer together with ThirdPartySources ZIP and notices. Evidence is retained when uninstalling. SHA256SUMS.txt contains download checksums."
+          gh release create $env:GITHUB_REF_NAME @assets --draft --latest=false --verify-tag --title "EmailChronicle $version" --notes "Windows x64 installer. Signed and timestamped Windows binaries; Python is bundled. EML-only preview. Download the installer together with ThirdPartySources ZIP and notices. Evidence is retained when uninstalling. SHA256SUMS.txt contains download checksums."
       - name: Publish explicitly requested evaluation preview
         if: github.event_name == 'workflow_dispatch' && inputs.publish_preview
         shell: pwsh
@@ -93,5 +94,5 @@ jobs:
             "$((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant())  $($_.Name)"
           } | Set-Content -Encoding ascii installer-output/SHA256SUMS.txt
           $assets = (Get-ChildItem installer-output -File).FullName
-          gh release create "v$version" @assets --target $env:GITHUB_SHA --prerelease --latest=false --title "EmailChronicle $version — evaluation preview" --notes-file $notes
+          gh release create "v$version" @assets --target $env:GITHUB_SHA --draft --prerelease --latest=false --title "EmailChronicle $version — evaluation preview" --notes-file $notes
           if ($LASTEXITCODE -ne 0) { throw 'Preview publication failed' }

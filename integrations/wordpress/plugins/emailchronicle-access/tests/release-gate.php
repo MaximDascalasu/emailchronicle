@@ -3,6 +3,7 @@
 if (PHP_SAPI !== 'cli') exit(1);
 function add_action(...$args) {}
 function add_shortcode(...$args) {}
+function get_option($key,$default=[]) { return $GLOBALS['fake_settings'] ?? $default; }
 function gate_assert($ok, $label) {
     if (!$ok) throw new RuntimeException($label);
     echo "PASS: $label\n";
@@ -35,6 +36,12 @@ try {
     gate_assert(EC_Access::installer()===realpath(EC_INSTALLER_PATH), 'configured current version allowed');
     putenv('EC_RELEASE_ACCEPTED=0');
     gate_assert(EC_Access::installer()===false, 'withdrawn acceptance immediately denies file');
+    gate_assert(EC_Access::private_directory_valid($root.'/private'), 'private sibling directory allowed');
+    gate_assert(!EC_Access::private_directory_valid($root.'/public'), 'document root cannot be private storage');
+    $GLOBALS['fake_settings']=['EC_RELEASE_VERSION'=>'0.1.4','EC_TEST_UNSUPPORTED'=>'synthetic'];
+    putenv('EC_RELEASE_VERSION');
+    gate_assert(EC_Access::setting('EC_RELEASE_VERSION')==='0.1.4', 'administrator-saved release settings supported');
+    gate_assert(EC_Access::setting('EC_TEST_UNSUPPORTED')==='', 'unsupported settings cannot be loaded from options');
 } finally {
     foreach ($saved as $key=>$value) putenv($value===false ? $key : $key.'='.$value);
     unlink(EC_INSTALLER_PATH); rmdir($root.'/private'); rmdir($root.'/public'); rmdir($root);

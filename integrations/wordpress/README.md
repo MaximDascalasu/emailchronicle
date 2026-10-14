@@ -40,3 +40,23 @@ and `tests/access.php` require a running local WordPress and its wp-load.php pat
 Pushing source or publishing a GitHub release does not deploy Hostinger files or
 WordPress database settings. Production deployment and clean-machine acceptance
 remain separate requirements. Access codes and server credentials stay outside Git.
+
+## WordPress setup without hosting configuration edits (plugin 0.2.2)
+
+Under Tools > EmailChronicle access, upload the verified 0.1.4 installer. The
+administrator-only POST handler checks the pinned SHA-256, creates storage beside
+(rather than inside) the document root, rejects public-root paths and moves the
+file into private storage. PHP/hosting upload and filesystem limits still apply.
+The upload leaves downloads disabled. Set a long shared code and explicitly enable
+the unsigned evaluation preview after reviewing the tests. These settings are
+stored in non-autoloaded WordPress options; environment/constants take precedence.
+The code is saved as the native WordPress page password, never displayed in the
+setup screen and never included in release assets. Request notifications use the
+existing configured WordPress mail transport only when enabled; applicants are
+reviewed manually and receive no automatic code.
+
+The intended distribution is protected website delivery. Future application
+workflows create draft releases and do not upload installer Actions artifacts in
+the public repository. Existing public binaries must be retired after protected
+website delivery is verified. Public MIT source remains available and can be built
+independently; this restricts official binary downloads, not source redistribution.
