@@ -6,7 +6,8 @@ import json
 import sqlite3
 import uuid
 
-from .parser import parse_eml
+from .parser import parse_email, parse_date, clean_address
+from .reading import chronological, date_key
 
 SCHEMA = """
 PRAGMA foreign_keys=ON;
@@ -30,7 +31,7 @@ CREATE TABLE IF NOT EXISTS search_dictionaries (
 CREATE TABLE IF NOT EXISTS audit (
  id INTEGER PRIMARY KEY, investigation_id INTEGER REFERENCES investigations(id),
  time_utc TEXT NOT NULL, action TEXT NOT NULL, details TEXT NOT NULL);
-PRAGMA user_version=2;
+
 """
 
 
@@ -47,6 +48,33 @@ class Store:
         self.db = sqlite3.connect(self.directory / "chronicle.sqlite3")
         self.db.row_factory = sqlite3.Row
         self.db.executescript(SCHEMA)
+        self.refresh_extractions()
+
+    def refresh_extractions(self):
+        """Upgrade derived messages once, preserving evidence files and existing message IDs."""
+        if self.db.execute('PRAGMA user_version').fetchone()[0] >= 3:
+            return
+        with self.db:
+            for source in self.db.execute('SELECT * FROM sources').fetchall():
+                try:
+                    data = Path(source['stored_path']).read_bytes()
+                except OSError:
+                    self.audit(source['investigation_id'], 'extraction_refresh_skipped', {'source_id':source['id'], 'reason':'source unavailable'})
+                    continue
+                if hashlib.sha256(data).hexdigest() != source['sha256']:
+                    self.audit(source['investigation_id'], 'extraction_refresh_skipped', {'source_id':source['id'], 'reason':'integrity mismatch'})
+                    continue
+                old = list(self.db.execute('SELECT * FROM messages WHERE source_id=?', (source['id'],)))
+                for msg in parse_email(data, Path(source['stored_path']).suffix):
+                    previous = next((r for r in old if r['kind']==msg.kind and r['raw_date']==msg.raw_date and clean_address(r['sender'])==clean_address(msg.sender)), None)
+                    values = (msg.sender,msg.recipients,msg.subject,msg.raw_date,msg.date_utc,msg.body,msg.kind,msg.locator,msg.message_id,json.dumps(msg.flags),msg.fingerprint)
+                    if previous:
+                        self.db.execute('UPDATE messages SET sender=?,recipients=?,subject=?,raw_date=?,date_utc=?,body=?,kind=?,locator=?,message_id=?,flags=?,fingerprint=? WHERE id=?',values+(previous['id'],))
+                        old.remove(previous)
+                    else:
+                        self.db.execute('INSERT INTO messages(sender,recipients,subject,raw_date,date_utc,body,kind,locator,message_id,flags,fingerprint,source_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',values+(source['id'],))
+                self.audit(source['investigation_id'],'refresh_message_extraction',{'source_id':source['id'],'parser_revision':3})
+            self.db.execute('PRAGMA user_version=3')
 
     def close(self):
         self.db.close()
@@ -92,9 +120,13 @@ class Store:
         return self.db.execute("SELECT * FROM investigations ORDER BY id").fetchall()
 
     def import_eml(self, investigation, path):
+        """Compatibility entry point; accepts either supported email format."""
+        return self.import_email(investigation, path)
+
+    def import_email(self, investigation, path):
         path = Path(path).resolve()
-        if path.suffix.lower() != ".eml":
-            raise ValueError("This release imports EML only")
+        if path.suffix.lower() not in (".eml", ".msg"):
+            raise ValueError("Supported email formats are EML and MSG")
         if not self.db.execute("SELECT 1 FROM investigations WHERE id=?", (investigation,)).fetchone():
             raise ValueError("Unknown investigation")
         data = path.read_bytes()
@@ -105,11 +137,11 @@ class Store:
             with self.db:
                 self.audit(investigation, "duplicate_file_skipped", {"path": str(path), "sha256": digest, "source_id": existing[0]})
             return 0
-        messages = parse_eml(data)
+        messages = parse_email(data, path.suffix)
         # Unique managed copy: never write to the submitted original, including on reimport.
         folder = self.evidence / str(investigation)
         folder.mkdir(exist_ok=True)
-        copy = folder / (uuid.uuid4().hex + ".eml")
+        copy = folder / (uuid.uuid4().hex + path.suffix.lower())
         try:
             with copy.open("xb") as stream:
                 stream.write(data)
@@ -122,7 +154,7 @@ class Store:
                         body,kind,locator,message_id,flags,fingerprint) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)""",
                         (source, msg.sender, msg.recipients, msg.subject, msg.raw_date, msg.date_utc, msg.body,
                          msg.kind, msg.locator, msg.message_id, json.dumps(msg.flags), msg.fingerprint))
-                self.audit(investigation, "import_eml", {"source_id": source, "sha256": digest, "messages": len(messages)})
+                self.audit(investigation, "import_" + path.suffix.lower()[1:], {"source_id": source, "sha256": digest, "messages": len(messages)})
         except Exception:
             copy.unlink(missing_ok=True)
             raise
@@ -136,10 +168,12 @@ class Store:
              (d.fingerprint=m.fingerprint OR (m.message_id IS NOT NULL AND d.message_id=m.message_id))) AS duplicate_count
             FROM messages m JOIN sources s ON s.id=m.source_id
             WHERE s.investigation_id=? ORDER BY m.date_utc IS NULL, m.date_utc, m.id""", (investigation,)).fetchall()
-        return [r for r in rows if sender.casefold() in (r["sender"] or "").casefold()
+        rows = [dict(r) for r in rows]
+        return chronological([r for r in rows if sender.casefold() in (r["sender"] or "").casefold()
                 and keyword.casefold() in ((r["subject"] or "") + "\n" + r["body"]).casefold()
-                and (not r["date_utc"] or ((not date_from or r["date_utc"][:10] >= date_from)
-                     and (not date_to or r["date_utc"][:10] <= date_to)))]
+                and (not date_key(r) or ((not date_from or date_key(r)[:10] >= date_from)
+                     and (not date_to or date_key(r)[:10] <= date_to)))])
+
 
     def verified_source(self, message_id):
         row = self.db.execute("""SELECT s.* FROM sources s JOIN messages m ON m.source_id=s.id

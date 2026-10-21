@@ -39,7 +39,7 @@ Some upstream notice folders describe more code than this app uses; this is
 intentional and does not mean every optional component is installed.
 
 The packaging allowlist excludes Virtual Keyboard, WebEngine, PDF, QML/Quick,
-SVG, software OpenGL, network plugins and optional image codecs, which this EML-only application
+SVG, software OpenGL, network plugins and optional image codecs, which this application
 does not use. Builds fail if unreviewed Qt DLLs or plugins reach the final bundle.
 
 `bundle-inventory.json` identifies shipped files and hashes. It is a build
@@ -51,3 +51,6 @@ that a commercial distribution meets every applicable legal requirement.
 
 EmailChronicle's own source uses MIT; see the bundled LICENSE. This grant does
 not replace the separate licences of the runtime and build components above.
+
+MSG parsing uses Aspose.Email FOSS for Python 26.3 under MIT. Its license is
+collected with the installer notices. Upstream: https://github.com/aspose-email-foss/Aspose.Email-FOSS-for-Python

@@ -56,7 +56,8 @@ try {
     $process = Start-Process -FilePath "dist\EmailChronicle\EmailChronicle.exe" -ArgumentList @("--smoke-test", "`"$report`"") -WindowStyle Hidden -PassThru
     if (-not $process.WaitForExit(60000)) { $process.Kill(); throw "Executable smoke test timed out" }
     if ($process.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $report)) { throw "Executable smoke test failed" }
-    if ((Get-Content -LiteralPath $report -Raw | ConvertFrom-Json).status -ne "ok") { throw "Invalid smoke report" }
+    $smokeResult = Get-Content -LiteralPath $report -Raw | ConvertFrom-Json
+    if ($smokeResult.status -ne 'ok' -or -not $smokeResult.eml -or -not $smokeResult.msg -or -not $smokeResult.mixed_email_import) { throw 'EML/MSG smoke verification failed' }
     $smokeVerified = $true
 } catch {
     if (-not $PackageUnverifiedPreview) { throw }

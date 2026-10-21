@@ -79,7 +79,7 @@ is needed for the packaged application. Setup installs per user; uninstall keeps
 investigation data. See README for development installation and build commands.
 
 1. Create an investigation and give it a descriptive name.
-2. Import EML files. Each investigation has its own evidence collection.
+2. Import EML or MSG files. Each investigation has its own evidence collection.
 3. Read the timeline, ordered oldest to newest in UTC. Missing or uncertain dates
    are flagged; unknown dates appear last rather than receiving invented times.
 4. Select a message to inspect content, provenance, and parsing warnings. Quoted
@@ -99,6 +99,6 @@ folder together; managed evidence paths currently require care when moving to a
 different location. SQLite data is not encrypted and the audit trail is not
 tamper-proof. Protect the Windows account and storage appropriately.
 
-MSG, PDF, DOCX, ZIP and native Excel export are not implemented in this first
+PDF, DOCX and ZIP import are not implemented in this first
 slice. The next recommended improvement is a manual-review queue that preserves
 raw parsed values alongside investigator corrections and records those changes.

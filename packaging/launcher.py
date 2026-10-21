@@ -66,14 +66,35 @@ def smoke_test(report):
                 QFileDialog.getSaveFileName = original_save_dialog
             with csv_path.open(encoding='utf-8-sig', newline='') as stream:
                 exported = list(csv.DictReader(stream))
-            assert len(exported) == 1 and exported[0]['sha256'] == row['sha256']
+            assert len(exported) == 1 and exported[0]['Subject'] == row['subject']
+            # Exercise MSG using the bundled parser and an independent synthetic file.
+            from email.message import EmailMessage
+            from aspose.email_foss.msg import MapiMessage
+            mail = EmailMessage()
+            mail['From'] = 'outlook@example.test'
+            mail['To'] = 'recipient@example.test'
+            mail['Subject'] = 'Packaged Outlook test'
+            mail['Date'] = 'Tue, 07 Jul 2026 12:30:00 +0100'
+            mail.set_content('Synthetic Outlook content.')
+            msg_path = folder / 'synthetic.msg'
+            with MapiMessage.from_email_message(mail) as outlook:
+                msg_path.write_bytes(outlook.to_bytes())
+            assert store.import_email(investigation, msg_path) == 1
+            assert store.import_email(investigation, msg_path) == 0
+            msg_row = next(r for r in store.timeline(investigation) if r['subject'] == 'Packaged Outlook test')
+            assert msg_row['date_utc'] == '2026-07-07T11:30:00+00:00'
+            assert store.verified_source(msg_row['id']).read_bytes() == msg_path.read_bytes()
+            from emailchronicle.app import SourceViewer
+            msg_viewer = SourceViewer(msg_path.read_bytes(), msg_path.name, msg_row['sha256'], window)
+            assert 'Synthetic Outlook content.' in msg_viewer.raw_text.toPlainText()
+            msg_viewer.close()
             from PySide6.QtCore import QTimer
             QTimer.singleShot(50, app.quit)
             assert app.exec() == 0
             window.close()
             dispose_windows()
             Path(report).write_text(json.dumps({"status": "ok", "qt": True, "sqlite": True,
-                "eml": True, "hash_verification": True, "expanded_search": True,
+                "eml": True, "msg": True, "mixed_email_import": True, "hash_verification": True, "expanded_search": True,
                 "pdf_excel_graph_exports": True, "csv_ui_export": True, "event_loop_exit": True,
                 "native_window_disposal": True, "built_in_source_viewer": True,
                 "bundled_runtime": bool(getattr(sys, 'frozen', False))}), encoding="utf-8")

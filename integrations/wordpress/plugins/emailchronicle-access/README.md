@@ -14,8 +14,8 @@ only this WordPress endpoint; it cannot restrict public GitHub downloads.
 
 ```php
 define('EC_PRIVATE_DIR', '/absolute/private/emailchronicle');
-define('EC_RELEASE_VERSION', '0.1.4');
-define('EC_INSTALLER_PATH', EC_PRIVATE_DIR . '/EmailChronicle-Setup-0.1.4-x64.exe');
+define('EC_RELEASE_VERSION', '0.1.7');
+define('EC_INSTALLER_PATH', EC_PRIVATE_DIR . '/EmailChronicle-Setup-0.1.7-x64.exe');
 // Set EC_INSTALLER_SHA256 to the exact release checksum (64 lowercase hex digits).
 // Set EC_GITHUB_ASSET_ID to that release's numeric installer asset ID.
 // Set EC_RELEASE_ACCEPTED to true ONLY after reviewing installation acceptance.
@@ -41,9 +41,9 @@ Pushing source or publishing a GitHub release does not deploy Hostinger files or
 WordPress database settings. Production deployment and clean-machine acceptance
 remain separate requirements. Access codes and server credentials stay outside Git.
 
-## WordPress setup without hosting configuration edits (plugin 0.2.2)
+## WordPress setup without hosting configuration edits (plugin 0.2.5)
 
-Under Tools > EmailChronicle access, upload the verified 0.1.4 installer. The
+Under Tools > EmailChronicle access, upload the verified 0.1.7 installer. The
 administrator-only POST handler checks the pinned SHA-256, creates storage beside
 (rather than inside) the document root, rejects public-root paths and moves the
 file into private storage. PHP/hosting upload and filesystem limits still apply.

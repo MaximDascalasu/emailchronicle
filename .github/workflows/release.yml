@@ -50,7 +50,8 @@ jobs:
           $app = Start-Process "$installDir\EmailChronicle.exe" -ArgumentList @('--smoke-test', "`"$report`"") -WindowStyle Hidden -PassThru
           if (-not $app.WaitForExit(60000)) { $app.Kill(); throw "Installed smoke test timed out" }
           if ($app.ExitCode -ne 0 -or -not (Test-Path $report)) { throw "Installed executable failed" }
-          if ((Get-Content $report -Raw | ConvertFrom-Json).status -ne 'ok') { throw "Installed smoke report invalid" }
+          $installedSmoke = Get-Content $report -Raw | ConvertFrom-Json
+          if ($installedSmoke.status -ne 'ok' -or -not $installedSmoke.eml -or -not $installedSmoke.msg -or -not $installedSmoke.mixed_email_import) { throw 'Installed EML/MSG smoke report invalid' }
           $dataDir = Join-Path $env:LOCALAPPDATA "EmailChronicle"
           New-Item -ItemType Directory -Force $dataDir | Out-Null
           $sentinel = Join-Path $dataDir "uninstall-preservation-test.txt"
@@ -74,7 +75,7 @@ jobs:
           $status = Get-Content installer-output/signing-status.json -Raw | ConvertFrom-Json
           if (-not $status.signed) { throw 'Unsigned releases are blocked' }
           $assets = (Get-ChildItem installer-output -File).FullName
-          gh release create $env:GITHUB_REF_NAME @assets --draft --latest=false --verify-tag --title "EmailChronicle $version" --notes "Windows x64 installer. Signed and timestamped Windows binaries; Python is bundled. EML-only preview. Download the installer together with ThirdPartySources ZIP and notices. Evidence is retained when uninstalling. SHA256SUMS.txt contains download checksums."
+          gh release create $env:GITHUB_REF_NAME @assets --draft --latest=false --verify-tag --title "EmailChronicle $version" --notes "Windows x64 installer. Signed and timestamped Windows binaries; Python is bundled. EML and Outlook MSG preview. The installer includes third-party sources and notices. Evidence is retained when uninstalling. SHA256SUMS.txt contains download checksums."
       - name: Publish explicitly requested evaluation preview
         if: github.event_name == 'workflow_dispatch' && inputs.publish_preview
         shell: pwsh
@@ -85,7 +86,7 @@ jobs:
           $notes = "docs/RELEASE-NOTES-$version.md"
           if (-not (Test-Path -LiteralPath $notes)) { throw 'Version-specific preview notes missing' }
           $smoke = Get-Content installer-output/packaged-smoke-report.json -Raw | ConvertFrom-Json
-          if ($smoke.status -ne 'ok') { throw 'Verified packaged smoke report required' }
+          if ($smoke.status -ne 'ok' -or -not $smoke.msg -or -not $smoke.mixed_email_import) { throw 'Verified packaged smoke report required' }
           $distribution = Get-Content packaging/distribution-status.json -Raw | ConvertFrom-Json
           if ($distribution.application_license -eq 'pending-owner-decision') { throw 'Application licence selection required' }
           Compress-Archive -Path integrations/wordpress/plugins/emailchronicle-access -DestinationPath installer-output/emailchronicle-access.zip

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: EmailChronicle Early Access
  * Description: Request access or enter a shared code; private installer delivery.
- * Version: 0.2.2
+ * Version: 0.2.5
  */
 if (!defined('ABSPATH')) exit;
 final class EC_Access {
@@ -186,7 +186,7 @@ final class EC_Access {
         return $file;
     }
     static function release_version() {
-        $version=(string)(self::setting('EC_RELEASE_VERSION') ?: '0.1.4');
+        $version=(string)(self::setting('EC_RELEASE_VERSION') ?: '0.1.7');
         return preg_match('/^\d+\.\d+\.\d+$/D',$version) ? $version : '';
     }
     static function setting($key) {
@@ -216,20 +216,20 @@ final class EC_Access {
         self::setup_guard('ec_upload_release');
         $upload=$_FILES['installer'] ?? [];
         if (!is_array($upload) || ($upload['error'] ?? -1)!==UPLOAD_ERR_OK || !is_string($upload['tmp_name'] ?? null) || !is_uploaded_file($upload['tmp_name']) || filesize($upload['tmp_name'])>150*1024*1024) self::fail('Choose the verified installer, up to 150 MB. Check the server upload limit.',400);
-        $expected='f18d299257c5f7e92df3af4159e5a88f8faf7d4cedfe4ccaac09489373d8ff1a';
-        if (!hash_equals($expected,hash_file('sha256',$upload['tmp_name']))) self::fail('Installer checksum does not match the approved 0.1.4 build.',400);
+        $expected='4a0851dc6adecc56dc6adb6bde1881081126cc978c9bb279b7f10960a172281e';
+        if (!hash_equals($expected,hash_file('sha256',$upload['tmp_name']))) self::fail('Installer checksum does not match the packaged 0.1.7 build.',400);
         $web=realpath($_SERVER['DOCUMENT_ROOT'] ?? ABSPATH);
         if (!$web || dirname($web)===$web) self::fail('Cannot determine private storage. Configure hosting storage first.',409);
         $dir=dirname($web).'/emailchronicle-private';
         if (!is_dir($dir) && !mkdir($dir,0700,true)) self::fail('Hosting does not allow private storage here. Contact the administrator.',409);
         if (!self::private_directory_valid($dir) || !is_writable($dir)) self::fail('Private storage is unavailable or inside a public web root.',409);
-        $dir=realpath($dir); $file=$dir.'/EmailChronicle-Setup-0.1.4-x64.exe';
+        $dir=realpath($dir); $file=$dir.'/EmailChronicle-Setup-0.1.7-x64.exe';
         $temp=tempnam($dir,'ec-upload-');
         if (!$temp) self::fail('Cannot stage private installer.',503);
         if (!move_uploaded_file($upload['tmp_name'],$temp)) { unlink($temp); self::fail('Private upload failed.',503); }
         chmod($temp,0600);
         if (!hash_equals($expected,hash_file('sha256',$temp)) || !rename($temp,$file)) { if (is_file($temp)) unlink($temp); self::fail('Cannot activate verified private file.',503); }
-        update_option('ec_release_settings',['EC_PRIVATE_DIR'=>$dir,'EC_INSTALLER_PATH'=>$file,'EC_INSTALLER_SHA256'=>$expected,'EC_RELEASE_VERSION'=>'0.1.4','EC_RELEASE_ACCEPTED'=>false,'EC_MAIL_READY'=>self::setting('EC_MAIL_READY')],false);
+        update_option('ec_release_settings',['EC_PRIVATE_DIR'=>$dir,'EC_INSTALLER_PATH'=>$file,'EC_INSTALLER_SHA256'=>$expected,'EC_RELEASE_VERSION'=>'0.1.7','EC_RELEASE_ACCEPTED'=>false,'EC_MAIL_READY'=>self::setting('EC_MAIL_READY')],false);
         wp_safe_redirect(admin_url('tools.php?page=ec-access&ec_uploaded=1')); exit;
     }
     static function save_access() {
@@ -256,7 +256,7 @@ final class EC_Access {
         if (isset($_GET['ec_uploaded'])) echo '<div class="notice notice-success"><p>Verified installer stored outside the public web root. Downloads remain disabled until you save an access code and enable the preview below.</p></div>';
         if (isset($_GET['ec_saved'])) echo '<div class="notice notice-success"><p>Access settings saved.</p></div>';
         echo '<p><strong>Private installer:</strong> '.(self::setting('EC_INSTALLER_PATH') && is_file(self::setting('EC_INSTALLER_PATH')) ? 'Stored' : 'Not uploaded').' · <strong>Download status:</strong> '.(self::installer() ? 'Enabled' : 'Disabled').'</p>';
-        echo '<h2>1. Upload the verified installer</h2><p>Upload EmailChronicle-Setup-0.1.4-x64.exe. SHA-256 is checked before storage. This does not use the Media Library. Uploading disables downloads until you enable them again.</p><form method="post" enctype="multipart/form-data" action="'.esc_url(admin_url('admin-post.php')).'">';
+        echo '<h2>1. Upload the verified installer</h2><p>Upload EmailChronicle-Setup-0.1.7-x64.exe. SHA-256 is checked before storage. This does not use the Media Library. Uploading disables downloads until you enable them again.</p><form method="post" enctype="multipart/form-data" action="'.esc_url(admin_url('admin-post.php')).'">';
         wp_nonce_field('ec_upload_release');
         echo '<input type="hidden" name="action" value="ec_upload_release"><input type="file" name="installer" accept=".exe" required aria-label="Verified Windows installer"><button class="button">Upload to private storage</button></form><h2>2. Access code and evaluation downloads</h2><p>Choose a long random code. Leave blank to preserve an existing code. Changing it revokes previous password cookies. The code is never displayed here.</p><p><strong>Code:</strong> '.($page instanceof WP_Post && $page->post_password!=='' ? 'Configured' : 'Not configured').'</p><form method="post" action="'.esc_url(admin_url('admin-post.php')).'">';
         wp_nonce_field('ec_save_access');

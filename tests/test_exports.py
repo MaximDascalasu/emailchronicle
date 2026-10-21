@@ -29,7 +29,8 @@ def test_report_bundle(tmp_path):
         assert b'quoted_headers_unverified' in z.read('xl/worksheets/sheet2.xml')
     data=json.loads((folder/'export-data.json').read_text())
     assert len(data['messages'])==len(rows)
-    assert data['metadata']['Undated occurrences']==2
+    assert data['metadata']['Undated occurrences']==1
+    assert data['metadata']['Timezone not recorded']==1
     assert store.db.execute("SELECT count(*) FROM audit WHERE action='export_report_bundle'").fetchone()[0]==1
     assert all(Path(p).read_bytes()==content for p,content in original.items())
     with pytest.raises(ValueError):export_bundle(store,case,rows,store.directory,{})

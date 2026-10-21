@@ -93,7 +93,7 @@ try {
             $smoke = Join-Path $runRoot "launch-$i.json"
             Run-Checked $exe @('--smoke-test',('"'+$smoke+'"'))
             $result = Get-Content -LiteralPath $smoke -Raw | ConvertFrom-Json
-            if ($result.status -ne 'ok') { throw 'Installed application smoke failed' }
+            if ($result.status -ne 'ok' -or -not $result.eml -or -not $result.msg -or -not $result.mixed_email_import) { throw 'Installed application smoke failed' }
             $report.launches += @{run=$i; exit_code=0; result=$result}
         }
     } finally {
