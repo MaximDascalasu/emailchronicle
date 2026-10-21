@@ -15,6 +15,8 @@ from PySide6.QtWidgets import (QApplication, QComboBox, QFileDialog, QHBoxLayout
     QSplitter, QTableWidget, QTableWidgetItem, QTextEdit, QVBoxLayout, QWidget,
     QFrame, QHeaderView, QTabWidget, QCheckBox, QMenu, QDialog, QDialogButtonBox, QPlainTextEdit)
 
+from .reading import clean_message, readable_date, chronological, message_date, people_summary
+from .parser import clean_address, parse_email
 from .store import Store
 from .search import search, plan, pattern, highlight_ranges, MAX_HIGHLIGHTS
 from .qt_lifecycle import dispose_windows
@@ -25,7 +27,7 @@ class SourceViewer(QDialog):
     def __init__(self, data, name, sha256, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-        self.setWindowTitle('Original EML source · read only')
+        self.setWindowTitle('Original email source · read only')
         self.resize(900, 650)
         layout = QVBoxLayout(self)
         identity = QLabel(f'{name}\nSHA-256: {sha256}\n{len(data):,} bytes · integrity checked before display')
@@ -36,10 +38,14 @@ class SourceViewer(QDialog):
         tabs = QTabWidget()
         self.raw_text = QPlainTextEdit()
         self.raw_text.setReadOnly(True)
-        self.raw_text.setAccessibleName('Raw EML text, read only')
+        is_msg = Path(name).suffix.lower() == '.msg'
+        self.raw_text.setAccessibleName('Decoded MSG text, read only' if is_msg else 'Raw EML text, read only')
         self.raw_text.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-        self.raw_text.setPlainText(data[:2*1024*1024].decode('utf-8', errors='replace'))
-        tabs.addTab(self.raw_text, 'Raw EML text')
+        preview = data[:2*1024*1024].decode('utf-8', errors='replace')
+        if is_msg:
+            preview = '\n\n'.join(f'From: {m.sender or ""}\nTo: {m.recipients or ""}\nSubject: {m.subject or ""}\nDate: {m.raw_date or ""}\n\n{m.body}' for m in parse_email(data, '.msg'))
+        self.raw_text.setPlainText(preview[:2*1024*1024])
+        tabs.addTab(self.raw_text, 'Decoded MSG text' if is_msg else 'Raw EML text')
         self.hex_text = QPlainTextEdit()
         self.hex_text.setReadOnly(True)
         self.hex_text.setAccessibleName('Original byte hex preview')
@@ -48,7 +54,7 @@ class SourceViewer(QDialog):
             for offset in range(0, min(len(data), 65536), 16)))
         tabs.addTab(self.hex_text, 'Original bytes · hex')
         layout.addWidget(tabs)
-        note = QLabel('Text is a UTF-8 display with replacement characters for undecodable bytes; hex shows exact bytes.\n'
+        note = QLabel('MSG text is decoded message content; EML text is a UTF-8 preview. Hex shows exact original bytes.\n'
             'Display limits: first 2 MiB of text and first 64 KiB of hex. The preserved file stays complete.\n'
             'HTML, links and attachments are not executed. No external mail application is needed.')
         note.setWordWrap(True)
@@ -85,7 +91,7 @@ QLineEdit, QComboBox { background: white; border: 1px solid #cbd6e5; border-radi
 QComboBox QAbstractItemView { background: white; color: #24334b; selection-background-color: #dce9ff; }
 QTableWidget { background: white; alternate-background-color: #f8fafd; border: 1px solid #dce3ee; border-radius: 8px; selection-background-color: #dfebff; selection-color: #123d7c; }
 QTableWidget::item { padding: 6px; border-bottom: 1px solid #edf1f6; }
-QHeaderView::section { background: #eaf0f7; color: #54667f; font-size: 10px; font-weight: 700; border: 0; padding: 10px 8px; }
+QHeaderView::section { background: #eaf0f7; color: #54667f; font-size: 10px; font-weight: 700; border: 0; border-right: 2px solid #a9b9cf; padding: 10px 8px; }
 QTextEdit { background: white; border: 0; padding: 10px; selection-background-color: #dce9ff; }
 QTabWidget::pane { border: 1px solid #e0e6ee; background: white; }
 QTabBar::tab { background: #f2f5fa; padding: 11px 10px; color: #61718a; }
@@ -121,11 +127,11 @@ class Window(QMainWindow):
         self.setCentralWidget(root)
         sidebar = QFrame()
         sidebar.setObjectName("sidebar")
-        sidebar.setFixedWidth(224)
+        sidebar.setFixedWidth(185)
         nav = QVBoxLayout(sidebar)
         nav.setContentsMargins(16, 24, 16, 20)
         nav.setSpacing(16)
-        brand = QLabel("EC  /  EmailChronicle")
+        brand = QLabel("EmailChronicle")
         brand.setObjectName("brand")
         nav.addWidget(brand)
         subtitle = QLabel("EVIDENCE WORKSPACE")
@@ -148,14 +154,14 @@ class Window(QMainWindow):
         explanation.setObjectName("sidebarNote")
         nav.addWidget(explanation)
         nav.addStretch()
-        local = QLabel("●  LOCAL WORKSPACE\nNo cloud processing\nEML evidence · CSV export")
+        local = QLabel("●  LOCAL WORKSPACE\nNo cloud processing\nEML / MSG evidence · CSV export")
         local.setObjectName("sidebarNote")
         nav.addWidget(local)
         shell.addWidget(sidebar)
         main = QWidget()
         layout = QVBoxLayout(main)
-        layout.setContentsMargins(20, 20, 20, 12)
-        layout.setSpacing(12)
+        layout.setContentsMargins(14, 10, 14, 8)
+        layout.setSpacing(6)
         shell.addWidget(main, 1)
         top = QHBoxLayout()
         heading = QVBoxLayout()
@@ -175,7 +181,7 @@ class Window(QMainWindow):
         top.addWidget(self.export_button)
         self.import_button = QPushButton("+  Import evidence")
         self.import_button.setObjectName("primary")
-        self.import_button.setToolTip("Import local EML files (Ctrl+O)")
+        self.import_button.setToolTip("Import local EML or MSG files (Ctrl+O)")
         self.import_button.clicked.connect(self.import_files)
         top.addWidget(self.import_button)
         layout.addLayout(top)
@@ -186,7 +192,7 @@ class Window(QMainWindow):
         journey.setSpacing(8)
         steps = QHBoxLayout()
         self.workflow_buttons = []
-        for index, label in enumerate(("1  Create case", "2  Import EML", "3  Read timeline", "4  Check sources", "5  Export")):
+        for index, label in enumerate(("1  Create case", "2  Import EML / MSG", "3  Read timeline", "4  Check sources", "5  Export")):
             button = QPushButton(label)
             button.setAccessibleName("Workflow step " + label)
             button.clicked.connect(lambda checked=False, step=index: self.workflow_step(step))
@@ -201,7 +207,11 @@ class Window(QMainWindow):
         self.guidance.setObjectName("guidance")
         self.guidance.setWordWrap(True)
         journey.addWidget(self.guidance)
+        self.overview_toggle = QPushButton("Show guidance & statistics ▾")
+        self.overview_toggle.setCheckable(True)
+        layout.addWidget(self.overview_toggle)
         layout.addWidget(workflow)
+        workflow.hide()
         summary = QHBoxLayout()
         self.metrics = []
         self.metric_notes = []
@@ -224,7 +234,12 @@ class Window(QMainWindow):
             self.metric_notes.append(note)
             self.metrics.append(value)
             summary.addWidget(card)
-        layout.addLayout(summary)
+        summary_panel = QWidget()
+        summary_panel.setLayout(summary)
+        layout.addWidget(summary_panel)
+        summary_panel.hide()
+        self.overview_toggle.toggled.connect(workflow.setVisible)
+        self.overview_toggle.toggled.connect(summary_panel.setVisible)
         filters = QHBoxLayout()
         self.keyword = QLineEdit()
         self.keyword.setPlaceholderText("Search subject or message content…")
@@ -235,7 +250,7 @@ class Window(QMainWindow):
         self.date_to = QLineEdit()
         self.date_to.setPlaceholderText("To YYYY-MM-DD")
         for widget, name in ((self.keyword, "Keyword filter"), (self.sender, "Sender filter"),
-                              (self.date_from, "UTC start date"), (self.date_to, "UTC end date")):
+                              (self.date_from, "Recorded start date"), (self.date_to, "Recorded end date")):
             widget.setAccessibleName(name)
             widget.setClearButtonEnabled(True)
             filters.addWidget(widget, 2 if widget is self.keyword else 1)
@@ -264,14 +279,23 @@ class Window(QMainWindow):
         self.relevance.toggled.connect(self.refresh)
         search_tools.addWidget(self.relevance)
         search_tools.addStretch()
-        layout.addLayout(search_tools)
+        advanced_panel = QWidget()
+        advanced_layout = QVBoxLayout(advanced_panel)
+        advanced_layout.setContentsMargins(0, 0, 0, 0)
+        advanced_layout.addLayout(search_tools)
         self.search_info = QLabel("All terms required. Use quotes for phrases. No AI or external requests.")
         self.search_info.setTextFormat(Qt.TextFormat.PlainText)
         self.search_info.setObjectName("muted")
         self.search_info.setWordWrap(True)
-        layout.addWidget(self.search_info)
+        advanced_layout.addWidget(self.search_info)
+        layout.addWidget(advanced_panel)
+        advanced_panel.hide()
+        advanced_button = QPushButton("Search options")
+        advanced_button.setCheckable(True)
+        advanced_button.toggled.connect(advanced_panel.setVisible)
+        filters.addWidget(advanced_button)
         tools = QHBoxLayout()
-        order = QLabel("TIMELINE   /   Oldest → newest · UTC")
+        order = QLabel("TIMELINE   /   Oldest → newest · recorded send times  |  Drag column dividers ↔ to resize")
         self.order_label = order
         order.setObjectName("muted")
         tools.addWidget(order, 1)
@@ -279,14 +303,14 @@ class Window(QMainWindow):
         self.review_only.toggled.connect(self.refresh)
         tools.addWidget(self.review_only)
         layout.addLayout(tools)
-        self.empty = QLabel("Create an investigation to begin\nImport EML evidence to reconstruct a conversation.")
+        self.empty = QLabel("Create an investigation to begin\nImport EML / MSG evidence to reconstruct a conversation.")
         self.empty.setObjectName("empty")
         self.empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         layout.addWidget(self.empty)
         splitter = QSplitter(Qt.Orientation.Horizontal)
         splitter.setChildrenCollapsible(False)
         self.table = QTableWidget(0, 5)
-        self.table.setHorizontalHeaderLabels(["DATE · UTC", "SENDER", "SUBJECT", "ORIGIN", "REVIEW"])
+        self.table.setHorizontalHeaderLabels(["DATE & TIME", "SENDER", "SUBJECT", "ORIGIN", "REVIEW"])
         self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -296,8 +320,10 @@ class Window(QMainWindow):
         self.table.verticalHeader().hide()
         self.table.verticalHeader().setDefaultSectionSize(58)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
-        for index, width in enumerate((155, 175, 240, 90, 180)):
+        self.table.horizontalHeader().setStretchLastSection(False)
+        self.table.horizontalHeader().setMinimumSectionSize(70)
+        self.table.horizontalHeader().setToolTip("Drag the divider between headings to resize. Double-click a divider to fit the content.")
+        for index, width in enumerate((185, 185, 230, 85, 160)):
             self.table.setColumnWidth(index, width)
         self.table.itemSelectionChanged.connect(self.show_message)
         splitter.addWidget(self.table)
@@ -305,18 +331,21 @@ class Window(QMainWindow):
         inspector.setObjectName("card")
         inspector.setMinimumWidth(300)
         inspect_layout = QVBoxLayout(inspector)
-        inspect_layout.setContentsMargins(18, 18, 18, 18)
+        inspect_layout.setContentsMargins(10, 10, 10, 10)
         title = QLabel("Evidence inspector")
         title.setObjectName("sectionTitle")
+        title.setMaximumHeight(18)
         inspect_layout.addWidget(title)
         self.message_title = QLabel("Select a message")
         self.message_title.setWordWrap(True)
+        self.message_title.setMaximumHeight(48)
         self.message_title.setTextFormat(Qt.TextFormat.PlainText)
         self.message_title.setObjectName("messageTitle")
         inspect_layout.addWidget(self.message_title)
         self.match_info = QLabel()
         self.match_info.setTextFormat(Qt.TextFormat.PlainText)
         self.match_info.setWordWrap(True)
+        self.match_info.hide()
         self.match_info.setObjectName("muted")
         inspect_layout.addWidget(self.match_info)
         self.tabs = QTabWidget()
@@ -337,22 +366,34 @@ class Window(QMainWindow):
         self.time_card.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.time_card.setObjectName("timeCard")
         self.time_card.setAccessibleName("Date and time breakdown")
-        message_layout.addWidget(self.time_card)
-        self.body_view.setMinimumHeight(140)
+        self.time_card.hide()
+        self.message_meta = QLabel()
+        self.message_meta.setTextFormat(Qt.TextFormat.PlainText)
+        self.message_meta.setWordWrap(True)
+        self.message_meta.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+        message_layout.addWidget(self.message_meta)
+        self.body_view.setMinimumHeight(180)
+        self.body_view.setStyleSheet("QTextEdit { font-size: 14px; padding: 12px; background: white; }")
         message_layout.addWidget(self.body_view, 1)
         self.tabs.addTab(message_panel, "Message")
-        self.tabs.addTab(self.detail, "Provenance & review")
-        inspect_layout.addWidget(self.tabs)
+        self.tabs.addTab(self.detail, "Source details")
+        self.original_text = QPlainTextEdit()
+        self.original_text.setReadOnly(True)
+        self.tabs.addTab(self.original_text, "Original text")
+        inspect_layout.addWidget(self.tabs, 1)
         self.source_button = QPushButton("Open verified source copy")
         self.source_button.clicked.connect(self.open_source)
         self.source_button.setEnabled(False)
         inspect_layout.addWidget(self.source_button)
-        note = QLabel("Source integrity is checked before opening.\nQuoted headers require investigator review.")
+        note = QLabel("Original evidence preserved · Details in Source details.")
         note.setObjectName("muted")
         note.setWordWrap(True)
         inspect_layout.addWidget(note)
         splitter.addWidget(inspector)
-        splitter.setSizes([800, 380])
+        splitter.setSizes([650, 520])
+        splitter.setStretchFactor(0, 3)
+        splitter.setStretchFactor(1, 2)
+        self.reader_splitter = splitter
         layout.addWidget(splitter, 1)
         self.statusBar().setSizeGripEnabled(False)
         for shortcut, callback in (("Ctrl+O", self.import_files), ("Ctrl+N", self.new_case),
@@ -448,7 +489,7 @@ class Window(QMainWindow):
         elif step == 1:
             self.import_files()
         elif step == 2:
-            self.set_guidance(2, "Read oldest → newest in UTC. Unknown dates stay last. Select a row to read its message; use search to narrow the timeline.")
+            self.set_guidance(2, "Read oldest → newest by recorded send time. Missing timezones are labeled; unknown dates stay last. Select a row to read its message; use search to narrow the timeline.")
             self.table.setFocus()
         elif step == 3:
             self.tabs.setCurrentIndex(1)
@@ -461,9 +502,9 @@ class Window(QMainWindow):
 
     def show_help(self):
         QMessageBox.information(self, "How EmailChronicle works",
-            "1. Create an investigation, then import EML files.\n"
+            "1. Create an investigation, then import EML or MSG files.\n"
             "2. The app preserves a hashed copy of each file and extracts messages.\n"
-            "3. Known dates are converted to UTC and sorted oldest first.\n"
+            "3. Recorded dates are sorted oldest first. Offsets are normalized to UTC; missing timezones are labeled.\n"
             "4. Review quoted headers, missing dates and likely duplicates manually.\n"
             "5. Select a message to inspect its content and source. Export visible rows to CSV or a PDF/Excel/graph bundle.\n\n"
             "Original files are never modified by the importer. All evidence stays in your local workspace.\n"
@@ -501,11 +542,11 @@ class Window(QMainWindow):
         if case is None:
             QMessageBox.information(self, "Investigation required", "Create an investigation first.")
             return
-        paths, _ = QFileDialog.getOpenFileNames(self, "Import evidence", "", "Email files (*.eml)")
+        paths, _ = QFileDialog.getOpenFileNames(self, "Import evidence", "", "Email files (*.eml *.msg)")
         count, skipped, failures = 0, 0, []
         for path in paths:
             try:
-                added = self.store.import_eml(case, path)
+                added = self.store.import_email(case, path)
                 count += added
                 skipped += added == 0
             except Exception as exc:
@@ -526,7 +567,7 @@ class Window(QMainWindow):
         if case is None:
             self.set_guidance(0, "Start here: create an investigation. It keeps this case's evidence separate from other cases.")
         elif not has_evidence:
-            self.set_guidance(1, "Next: import EML files in any order. The app preserves copies and hashes, extracts messages, and sorts known timestamps into UTC.")
+            self.set_guidance(1, "Next: import EML or MSG files in any order. The app preserves copies and hashes, extracts messages, and sorts recorded send times, retaining missing-timezone notices.")
         else:
             self.set_guidance(2, "Next: read the timeline, then check sources and review flags before exporting. Highlighted steps are guidance, not a record that evidence has been reviewed.")
         previous = self.selected()
@@ -572,7 +613,7 @@ class Window(QMainWindow):
                 (" · Selected expansions: " + '; '.join(expansions) if expansions else " · No synonym expansions selected for this query") +
                 (" · Approximate matches are spelling suggestions, not equivalent meanings." if settings['mode'] == 'approximate' else ""))
         self.order_label.setText("RESULTS   /   Relevance · chronology breaks ties" if self.relevance.isChecked() and self.keyword.text().strip()
-                                else "TIMELINE   /   Oldest → newest · UTC")
+                                else "TIMELINE / Oldest → newest · recorded send times · * timezone not recorded | Drag heading dividers ↔ to resize")
         if self.review_only.isChecked():
             self.rows = [row for row in self.rows if json.loads(row["flags"]) or row["duplicate_count"]]
         self.metrics[0].setText(str(len(self.rows)))
@@ -584,7 +625,7 @@ class Window(QMainWindow):
         self.export_button.setEnabled(bool(self.rows))
         self.empty.setVisible(not self.rows)
         self.empty.setText("No messages match these filters. Try Reset." if self.cases.currentData() is not None else
-                           "Create an investigation to begin\nThen import local EML evidence.")
+                           "Create an investigation to begin\nThen import local EML or MSG evidence.")
         self.table.setRowCount(0)
         self.detail.clear()
         for i, row in enumerate(self.rows):
@@ -592,8 +633,8 @@ class Window(QMainWindow):
             flags = json.loads(row["flags"])
             if row["duplicate_count"]:
                 flags.append("likely_duplicate")
-            display_date = row["date_utc"].replace("T", " ").replace("+00:00", "") if row["date_utc"] else "Undated / review"
-            for col, value in enumerate((display_date + "\nRaw: " + (row["raw_date"] or "[missing date header]"), (row["sender"] or "Unknown") + "\nTo: " + (row["recipients"] or "[missing]"),
+            display_date = message_date(row).replace(" · timezone not recorded", " (local*)").replace(" · ", "\n", 1)
+            for col, value in enumerate((display_date, (row["sender"] or "Unknown") + "\nTo: " + (row["recipients"] or "[missing]"),
                                          row["subject"] or "(no subject)", row["kind"].capitalize(),
                                          ", ".join(flag.replace("_", " ").capitalize() for flag in flags))):
                 item = QTableWidgetItem(value)
@@ -621,12 +662,17 @@ class Window(QMainWindow):
                 f"ORIGIN   {row['kind']} · {row['locator']}\n"
                 "Known offsets are normalized to UTC. Unknown dates are never guessed.")
             self.message_title.setText(row["subject"] or "(no subject)")
-            self.body_view.setPlainText(f"From: {row['sender'] or '[missing]'}\nTo: {row['recipients'] or '[missing]'}\n"
-                                       f"UTC: {row['date_utc'] or '[unknown — review required]'}\n\n{row['body']}")
+            self.message_meta.setText(f"Sent: {message_date(row)}\nFrom: {people_summary(row['sender']) or '[missing]'}\nTo: {people_summary(row['recipients']) or '[not recorded in quoted header]'}")
+            self.message_meta.setToolTip(f"From: {clean_address(row['sender'])}\nTo: {clean_address(row['recipients'])}")
+            self.body_view.setPlainText(clean_message(row['body'], row['sender']) or '[No message text after cleaning; see Provenance & review.]')
+            self.tabs.setCurrentIndex(0)
+            self.body_view.moveCursor(QTextCursor.MoveOperation.Start)
+            self.original_text.setPlainText(row['body'])
             matches = row.get('search_matches', [])
             explanations = list(dict.fromkeys(f"{m['query']} → {m['matched']} ({m['reason']}, {m['field']}" +
                 (f", group: {m['group']}" if m['group'] else "") + ")" for m in matches))
             self.match_info.setText("Matched: " + '; '.join(explanations[:8]) if explanations else "")
+            self.match_info.setVisible(bool(self.match_info.text()))
             selections = []
             content = self.body_view.toPlainText()
             spans = highlight_ranges(content, (m['matched'] for m in matches))
@@ -647,7 +693,7 @@ class Window(QMainWindow):
                 f"Origin: {row['kind']}\nLocation: {row['locator']}\n"
                 f"Review flags: {row['flags']}\nLikely duplicates: {row['duplicate_count']}\n"
                 f"Submitted source: {row['original_path']}\nPreserved copy: {row['stored_path']}\n"
-                f"SHA-256: {row['sha256']}\n\n{row['body']}")
+                f"SHA-256: {row['sha256']}\n\nComplete extracted text is available in the Original text tab.")
 
     def open_source(self, checked=False, *, external=False):
         row = self.selected()
@@ -656,7 +702,7 @@ class Window(QMainWindow):
                 path = self.store.verified_source(row["id"])
                 if external:
                     if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
-                        raise OSError('No external EML viewer is configured. Use the built-in source viewer instead.')
+                        raise OSError('No external email viewer is configured. Use the built-in source viewer instead.')
                 else:
                     data = path.read_bytes()
                     if hashlib.sha256(data).hexdigest() != row['sha256']:
@@ -677,15 +723,13 @@ class Window(QMainWindow):
             protected = {Path(r[k]).resolve() for r in sources for k in ("original_path", "stored_path")}
             if target in protected or target.is_relative_to(self.store.directory):
                 raise ValueError("Choose an export location outside the workspace and original evidence files.")
-            fields = ["date_utc", "raw_date", "sender", "recipients", "subject", "body", "kind", "flags",
-                      "duplicate_count", "locator", "original_path", "sha256", "search_score", "search_matches", "search_settings"]
             with target.open("w", encoding="utf-8-sig", newline="") as stream:
                 writer = csv.writer(stream)
-                writer.writerow(fields)
-                for row in self.rows:
-                    # Keep spreadsheet consumers from interpreting evidence text as formulas.
-                    writer.writerow([safe_cell(json.dumps(self.search_settings(), ensure_ascii=False) if key == 'search_settings' else
-                        json.dumps(row[key], ensure_ascii=False) if key == 'search_matches' else row[key]) for key in fields])
+                writer.writerow(["Sent date & time", "Sender", "Receiver", "Subject", "Message"])
+                for row in chronological(self.rows):
+                    writer.writerow([safe_cell(value) for value in (
+                        message_date(row), clean_address(row['sender']), clean_address(row['recipients']),
+                        row['subject'], clean_message(row['body'], row['sender']))])
             with self.store.db:
                 self.store.audit(self.cases.currentData(), "export_csv", {"path": str(target), "messages": len(self.rows), "search": self.search_settings()})
         except (OSError, ValueError) as exc:

@@ -10,11 +10,11 @@
 3. Add portable investigation backup/restore and batch integrity verification.
    Replace absolute managed-copy paths with relative workspace paths. Test
    restore on a different machine and recovery from interrupted imports.
-4. Add background import progress and cancellation for larger evidence batches,
-   then native Excel export with full provenance and review flags.
-5. Introduce MSG as the first additional format adapter. Evaluate the parser's
-   license and test metadata, timezones and forwarded chains before choosing it.
-   Add safe ZIP ingestion next with traversal, file-count and expansion limits.
+4. Add background import progress and cancellation for larger evidence batches.
+   Native Excel export is available; continue improving large-report handling.
+5. Extend MSG coverage to RTF-only bodies and additional Outlook variants.
+   EML and MSG plain-text/HTML import are implemented in 0.1.7.
+   Add safe ZIP ingestion with traversal, file-count and expansion limits.
 6. Add DOCX and PDF text extraction with page/paragraph provenance and explicit
    uncertainty; treat OCR as a later offline feature. Evaluate dependencies and
    their licenses before adding them.

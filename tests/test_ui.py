@@ -148,8 +148,8 @@ def test_import_export_and_source_ui(tmp_path, monkeypatch):
     window.export_csv()
     with output.open(encoding="utf-8-sig", newline="") as stream:
         exported = list(csv.DictReader(stream))
-    assert exported[0]["date_utc"] == "2026-07-07T10:30:00+00:00"
-    assert exported[0]["sha256"] == window.rows[0]["sha256"]
+    assert exported[0]["Sent date & time"] == "07 Jul 2026 · 10:30:00 UTC"
+    assert list(exported[0]) == ["Sent date & time", "Sender", "Receiver", "Subject", "Message"]
     opened = []
     monkeypatch.setattr(module.QDesktopServices, "openUrl", lambda url: opened.append(url.toLocalFile()) or True)
     window.table.selectRow(0)

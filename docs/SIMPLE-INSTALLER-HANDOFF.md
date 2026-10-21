@@ -1,8 +1,8 @@
 # Simple user installation and publisher handoff
 
-The user receives only `EmailChronicle-Setup-0.1.3-x64.exe`:
+The user receives only `EmailChronicle-Setup-0.1.7-x64.exe`:
 
-**Download → Run setup → Open EmailChronicle → Create investigation → Import EML**
+**Download → Run setup → Open EmailChronicle → Create investigation → Import EML or MSG**
 
 Python, Qt, SQLite, runtime files, third-party notices, the corresponding source
 ZIP and a quick-start guide are installed automatically. No manual prerequisites,

@@ -110,6 +110,13 @@ def prepare():
         raise ValueError("PyInstaller license and bootloader exception missing")
     (notices / "PyInstaller").mkdir(exist_ok=True)
     shutil.copy2(license_path, notices / "PyInstaller" / "COPYING.txt")
+    msg_distribution = importlib.metadata.distribution("aspose-email-foss")
+    msg_license = next((msg_distribution.locate_file(f) for f in msg_distribution.files or []
+                        if str(f).endswith("/licenses/LICENSE")), None)
+    if msg_license is None:
+        raise ValueError("Aspose.Email FOSS MIT license missing")
+    (notices / "AsposeEmailFOSS").mkdir(exist_ok=True)
+    shutil.copy2(msg_license, notices / "AsposeEmailFOSS" / "LICENSE")
     openssl_version = ssl.OPENSSL_VERSION.split()[1]
     fetch(f"https://raw.githubusercontent.com/openssl/openssl/openssl-{openssl_version}/LICENSE.txt",
           notices / "OpenSSL" / "LICENSE.txt")

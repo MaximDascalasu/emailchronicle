@@ -93,7 +93,7 @@ def test_missing_sender_html_and_quoted_prefix():
 
 def test_unrecognized_file_and_invalid_case_leave_no_copy(store):
     case = store.create_investigation("Case")
-    with pytest.raises(ValueError, match="EML only"):
+    with pytest.raises(ValueError, match="EML and MSG"):
         store.import_eml(case, "not.pdf")
     with pytest.raises(ValueError, match="Unknown investigation"):
         store.import_eml(999, SAMPLES / "01-initial.eml")

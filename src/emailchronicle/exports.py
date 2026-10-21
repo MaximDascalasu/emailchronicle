@@ -1,4 +1,5 @@
 """Local report exports. No network access or evidence modifications."""
+from .reading import clean_message, readable_date, chronological, message_date, date_key, people_summary
 from collections import Counter
 from datetime import datetime, timezone
 from email.utils import getaddresses
@@ -16,7 +17,7 @@ from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPdfWriter, QPageSize
 FIELDS = ['id', 'date_utc', 'raw_date', 'sender', 'recipients', 'subject', 'body', 'kind',
           'message_id', 'flags', 'duplicate_count', 'locator', 'original_path', 'stored_path', 'sha256',
           'search_score', 'search_matches']
-NOTICE = ('UTC throughout. Undated messages are not assigned times. Quoted headers are unverified claims. '
+NOTICE = ('Recorded send times are retained. UTC is used only where an offset is recorded; other times are labeled timezone not recorded. Undated messages are not assigned times. Quoted headers are unverified claims. '
           'Duplicate hints are not merged; graph counts include all exported occurrences. '
           'File hashes establish byte integrity, not author identity. Audit records are locally editable.')
 
@@ -100,29 +101,29 @@ class Graphic:
 def charts(folder, rows):
     # Paginate for readability: every occurrence appears, without an unbounded canvas.
     pages=[]
-    dated=sorted((r for r in rows if r['date_utc']), key=lambda r: (r['date_utc'], r['id']))
+    dated=chronological([r for r in rows if date_key(r)])
     for kind in ('timeline','gantt'):
         groups=[dated[i:i+24] for i in range(0,len(dated),24)] or [[]]
         for page, group in enumerate(groups,1):
             g=Graphic(1400, max(400,220+len(group)*45))
             g.text(35,40, 'Chronological timeline' if kind=='timeline' else 'Gantt-style event lanes',22)
-            g.text(35,73,'UTC · one marker per message · amber = quoted assertion; blue = original metadata')
-            g.text(35,98,f'{len(rows)-len(dated)} undated occurrences excluded from time axis; see workbook/report.')
-            g.text(35,122,'Emails are point events; no task duration is inferred. IDs link to the workbook and report.')
-            times=[datetime.fromisoformat(r['date_utc']).timestamp() for r in dated]
+            g.text(35,73,'Recorded send times · one marker per message · amber = quoted assertion; blue = original metadata')
+            g.text(35,98,f'{len(rows)-len(dated)} occurrences without a recorded date excluded from time axis; see workbook/report.')
+            g.text(35,122,'Clock-time axis: missing timezones are not inferred; spacing is not exact elapsed time. IDs link to messages.')
+            times=[datetime.fromisoformat(date_key(r)).replace(tzinfo=timezone.utc).timestamp() for r in dated]
             lo,hi=(min(times),max(times)) if times else (0,1)
             for i,r in enumerate(group):
                 y=185+i*45; color='#aa6800' if r['kind']=='quoted' else '#225ec4'
                 if kind=='timeline':
                     g.line(55,y-20,55,y+20); g.dot(55,y,color)
-                    g.text(80,y,f"#{r['id']}  {r['date_utc']}  {(r['sender'] or '[missing sender]')[:60]}",12)
+                    g.text(80,y,f"#{r['id']}  {message_date(r)}  {(r['sender'] or '[missing sender]')[:60]}",12)
                     g.text(80,y+20,(r['subject'] or '[no subject]')[:110],11)
                 else:
                     g.text(35,y,f"#{r['id']} {(r['subject'] or '[no subject]')[:33]}",11)
                     g.line(470,y,1320,y,'#edf1f6')
-                    x=470+850*(datetime.fromisoformat(r['date_utc']).timestamp()-lo)/(hi-lo or 1)
+                    x=470+850*(datetime.fromisoformat(date_key(r)).replace(tzinfo=timezone.utc).timestamp()-lo)/(hi-lo or 1)
                     g.dot(x,y,color)
-                    g.text(470,y+19,r['date_utc'],9)
+                    g.text(470,y+19,message_date(r),9)
             if not group: g.text(35,185,'No dated messages in this export.')
             base=folder/f'{kind}-{page:03d}';g.save(base);pages.append(base.with_suffix('.png'))
     edges=connections(rows)
@@ -148,23 +149,36 @@ def pdf_report(path, rows, metadata, images):
     writer.setTitle('EmailChronicle investigation report')
     writer.setCreator('EmailChronicle · local export')
     doc=QTextDocument();doc.setDefaultFont(QFont('Segoe UI',10))
-    html=['<h1>EmailChronicle</h1><h2>Investigation report</h2>']
-    html += [f'<p><b>{escape(k)}</b>: {escape(str(v))}</p>' for k,v in metadata.items()]
-    html += [f'<p>{NOTICE}</p><p>No conclusions or manual review completion are inferred.</p>']
-    for image in images:
-        html.append(f'<h2 style="page-break-before:always">{escape(image.stem)}</h2><img src="{image.as_uri()}" width="650"/>')
-    html.append('<h2 style="page-break-before:always">Messages · exported visible order (see search settings)</h2>')
+    rows = chronological(rows)
+    html=['<style>body { color:#24334b; } h1,h2 { color:#172942; } p { margin:6px 0; } td,th { padding:3px; font-size:9pt; } th { background:#eaf0f7; }</style>',
+          '<h1>Communication timeline</h1>', f"<h2>{escape(str(metadata.get('Investigation', 'Investigation')))}</h2>"]
+    dated = [r for r in rows if date_key(r)]
+    html.append(f"<p>{len(rows)} messages · {len(set(r['sender'] for r in rows))} senders · {len(rows)-len(dated)} missing dates</p>")
+    if dated:
+        html.append(f"<p>{message_date(dated[0])} to {message_date(dated[-1])}</p>")
+    html.append('<p>Read the overview, then follow the numbered messages in chronological order. Unknown dates appear last. UTC is shown where an offset is recorded. Other send times retain their recorded clock time with a timezone notice. Mixed timezones cannot establish an exact global ordering. Signatures and recognizable reply clutter are removed from this reading copy; complete text and evidence details remain in the workbook and JSON.</p>')
+    html.append('<h2>Conversation at a glance</h2><table width="100%" cellspacing="0"><tr><th>Sent date & time</th><th>Who sent it</th><th>Subject</th></tr>')
     for r in rows:
-        html.append(f"<h3>Message #{r['id']} · {escape(r['subject'] or '[no subject]')}</h3>")
-        for key in FIELDS:
-            if key=='body':continue
-            html.append(f'<p><b>{key}</b>: {escape(str(r[key] if r[key] is not None else "[missing]"))}</p>')
-        # Paragraphs preserve long messages and avoid non-breaking preformatted overflow.
-        html.append('<h4>Extracted content</h4>')
-        for line in r['body'].splitlines():
-            # Break long tokens so unbroken URLs/hash-like strings cannot overflow the page.
-            line=re.sub(r'\S{85,}',lambda m:'\u200b'.join(m[0][i:i+80] for i in range(0,len(m[0]),80)),line)
-            html.append('<p>'+escape(line or ' ')+'</p>')
+        stamp = escape(message_date(r).replace(' · timezone not recorded', ' (local*)')).replace(' · ', '<br>', 1)
+        html.append(f"<tr><td>{stamp}</td><td>{escape(people_summary(r['sender']) or '[missing]')}</td><td>{escape(r['subject'] or '[no subject]')}</td></tr>")
+    html.append('</table><h2 style="page-break-before:always">Messages · oldest to newest</h2>')
+    for number, r in enumerate(rows, 1):
+        html.append(f"<h3>{number}. {escape(r['subject'] or '[no subject]')}</h3>")
+        html.append(f"<p><b>{escape(message_date(r))}</b><br>From: {escape(r['sender'] or '[missing]')}<br>To: {escape(r['recipients'] or '[missing]')}</p>")
+        if r['kind'] == 'quoted' or not r['date_utc']:
+            html.append('<p><i>Review source: quoted headers or unknown date.</i></p>')
+        content = clean_message(r['body'], r['sender']) or '[No message text after cleaning; see complete evidence.]'
+        for paragraph in content.split('\n\n'):
+            paragraph=re.sub(r'\S{85,}',lambda m:'\u200b'.join(m[0][i:i+80] for i in range(0,len(m[0]),80)),paragraph)
+            html.append('<p>'+escape(paragraph).replace('\n','<br>')+'</p>')
+        html.append('<hr>')
+    for image in images:
+        # Scale tall charts to fit a single printable page.
+        picture = QImage(str(image))
+        width = min(650, int(950 * picture.width() / max(1, picture.height())))
+        html.append(f'<h2 style="page-break-before:always">{escape(image.stem)}</h2><img src="{image.as_uri()}" width="{width}"/>')
+    html.append(f'<h2 style="page-break-before:always">Export scope</h2><p>{NOTICE}</p>')
+    html += [f'<p><b>{escape(k)}</b>: {escape(str(v))}</p>' for k,v in metadata.items()]
     doc.setHtml(''.join(html));doc.print_(writer)
     if not path.is_file() or path.stat().st_size==0:raise OSError('PDF export failed')
 
@@ -175,7 +189,7 @@ def export_bundle(store, investigation, rows, parent, filters):
     if parent.is_relative_to(store.directory):raise ValueError('Choose an export folder outside the evidence workspace')
     case=store.db.execute('SELECT name FROM investigations WHERE id=?',(investigation,)).fetchone()
     if not case:raise ValueError('Select an investigation first')
-    rows=[dict(r) for r in rows]
+    rows=chronological([dict(r) for r in rows])
     for row in rows:
         row.setdefault('search_score', 0)
         row['search_matches'] = json.dumps(row.get('search_matches', []), ensure_ascii=False)
@@ -185,7 +199,7 @@ def export_bundle(store, investigation, rows, parent, filters):
     folder.mkdir() # exclusive creation, never reuses an existing export
     metadata={'Investigation':case['name'],'Generated UTC':datetime.now(timezone.utc).isoformat(),
               'Scope':'Current visible timeline; evidence inventory limited to included messages; audit covers whole investigation',
-              'Filters':json.dumps(filters,ensure_ascii=False),'Exported occurrences':len(rows),'Undated occurrences':sum(not r['date_utc'] for r in rows)}
+              'Filters':json.dumps(filters,ensure_ascii=False),'Exported occurrences':len(rows),'Undated occurrences':sum(not date_key(r) for r in rows), 'Timezone not recorded':sum(bool(date_key(r)) and not r['date_utc'] for r in rows)}
     try:
         source_ids={r['source_id'] for r in rows}
         sources=[dict(r) for r in store.db.execute('SELECT * FROM sources WHERE investigation_id=?',(investigation,)) if r['id'] in source_ids]

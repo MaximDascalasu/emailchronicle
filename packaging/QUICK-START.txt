@@ -3,13 +3,13 @@ EmailChronicle — quick start
 Install once, then open EmailChronicle from the Start menu.
 Python, Qt, SQLite and all required application libraries are included.
 No separate Python, Office, AI model, mail client or certificate installation
-is required to import EML, search, inspect sources and create reports.
+is required to import EML or MSG, search, inspect sources and create reports.
 
 1. Choose New investigation and enter a case name.
-2. Choose Import evidence and select EML files from your computer.
+2. Choose Import evidence and select EML or MSG files from your computer.
 3. Read the timeline, oldest first in UTC. Unknown dates are flagged, not guessed.
 4. Select a message to read it and inspect Provenance & review.
-5. Open verified source copy uses the built-in read-only EML and hex viewer.
+5. Open verified source copy uses the built-in read-only email text and hex viewer.
 6. Use Exact, Expanded or Approximate search. Define case-specific synonyms
    only when you intend to treat terms as related.
 7. Choose Export for CSV or a PDF/Excel/graph report bundle.

@@ -1,4 +1,4 @@
-# Clean Windows acceptance checklist — EmailChronicle 0.1.2
+# Clean Windows acceptance checklist — EmailChronicle 0.1.7
 
 This gate is NOT completed on the development host. Use a fresh Windows 10/11
 x64 VM or spare PC with no Python/Qt installation required by the application.
@@ -11,7 +11,7 @@ record the exact message and stop that step.
 2. In an approved PowerShell session (without changing execution policy), run:
 
    ```powershell
-   ./test-installed-preview.ps1 -Installer ./EmailChronicle-Setup-0.1.2-x64.exe -EnvironmentLabel clean-windows-vm -Launches 10 -OutputDirectory ./verification
+   ./test-installed-preview.ps1 -Installer ./EmailChronicle-Setup-0.1.7-x64.exe -EnvironmentLabel clean-windows-vm -Launches 10 -OutputDirectory ./verification
    ```
 
    If the script is blocked, have the system administrator assess it or perform

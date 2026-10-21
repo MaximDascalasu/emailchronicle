@@ -1,11 +1,15 @@
 #ifndef AppVersion
-  #define AppVersion "0.1.0"
+  #define AppVersion "0.1.7"
 #endif
 #ifndef AppPublisher
   #define AppPublisher "EmailChronicle"
 #endif
 #ifndef SourceCompanion
   #error SourceCompanion must point to the verified source companion ZIP
+#endif
+
+#ifndef AppBundle
+  #define AppBundle "..\dist\EmailChronicle"
 #endif
 
 [Setup]
@@ -45,7 +49,7 @@ SignedUninstaller=yes
 Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
 
 [Files]
-Source: "..\dist\EmailChronicle\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#AppBundle}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#SourceCompanion}"; DestDir: "{app}\_internal\third-party-notices"; DestName: "ThirdPartySources.zip"; Flags: ignoreversion
 Source: "QUICK-START.txt"; DestDir: "{app}"; Flags: ignoreversion
 
